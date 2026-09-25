@@ -465,9 +465,16 @@ def complementar_cadastros_xlsx(arquivo, administrador):
                 nao_localizados += 1
                 erros.append(f"Linha {numero_linha}: cadastro legado não localizado pelos dados informados.")
                 continue
-            if cadastro["nome_completo"] and cadastro["usuario"] and cadastro["email"]:
+            valores_atuais = (
+                str(cadastro["nome_completo"] or ""),
+                str(cadastro["usuario"] or ""),
+                str(cadastro["email"] or ""),
+            )
+            valores_planilha = (nome_completo, usuario, email)
+            if valores_atuais == valores_planilha:
                 ja_completos += 1
                 continue
+
             con.execute(
                 "UPDATE usuarios SET nome_completo=?,usuario=?,email=?,atualizado_em=? WHERE id=?",
                 (nome_completo, usuario, email, agora_iso(), cadastro["id"]),
@@ -717,7 +724,8 @@ if st.session_state.admin_logado:
         st.subheader("Completar nomes dos cadastros legados em lote")
         st.info(
             "Envie uma planilha XLSX com a guia 'Usuarios' e as colunas nome_completo, usuario e email. "
-            "A atualização ocorre somente quando usuário e e-mail correspondem ao cadastro legado."
+            "A atualização ocorre quando usuário e e-mail correspondem ao cadastro legado. "
+            "Se nome, usuário ou e-mail já existirem, os valores serão substituídos pelos dados atuais da planilha."
         )
         arquivo_xlsx = st.file_uploader(
             "Selecione a Relação Usuários da Central.xlsx",
