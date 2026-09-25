@@ -146,7 +146,6 @@ def exibir_central_indicadores():
                     <span class="indicador-card-acento"></span>
                     <span class="indicador-card-simbolo">{iniciais}</span>
                     <span class="indicador-card-titulo">{titulo}</span>
-                    <span class="indicador-card-acao">Acessar <b>&#8599;</b></span>
                 </a>"""
                 st.markdown(card_html, unsafe_allow_html=True)
 
@@ -352,8 +351,6 @@ st.markdown("""
 .indicador-card-acento{position:absolute;left:0;top:0;width:100%;height:5px;background:linear-gradient(90deg,#b51f25,#da291c 50%,#f47b45)}
 .indicador-card-simbolo{display:flex;align-items:center;justify-content:center;width:48px;height:48px;border-radius:15px;background:linear-gradient(145deg,#ed3025,#b51f25);color:#fff;font-size:.85rem;font-weight:900;letter-spacing:.3px;box-shadow:0 8px 18px rgba(181,31,37,.24);z-index:1}
 .indicador-card-titulo{display:flex;align-items:center;min-height:52px;margin:14px 0 11px;font-size:1rem;font-weight:850;line-height:1.25;z-index:1}
-.indicador-card-acao{display:flex;align-items:center;gap:6px;color:#b51f25;font-size:.82rem;font-weight:800;z-index:1}
-.indicador-card-acao b{font-size:1rem;transition:transform .2s ease}.indicador-card-link:hover .indicador-card-acao b{transform:translate(3px,-3px)}
 @media(max-width:900px){.indicador-card-link{min-height:150px;padding:20px 16px 16px}.indicador-card-titulo{font-size:.92rem}.indicador-card-simbolo{width:42px;height:42px;border-radius:13px}}
 </style><div class="claro-head"><h1>Claro | Central de Inteligência Operacional</h1><p>Cadastro, aprovação e recuperação de acesso</p></div>
 """, unsafe_allow_html=True)
