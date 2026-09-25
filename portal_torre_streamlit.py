@@ -724,67 +724,19 @@ html,body,.stApp,[data-testid="stAppViewContainer"]{max-width:100%!important;ove
   input,textarea{font-size:16px!important}
 }
 
-/* AJUSTE DEFINITIVO DO CABECALHO E MENU PUBLICO MOBILE */
+/* AJUSTE SEGURO MOBILE */
 .access-menu-anchor{display:none!important}
-@media (max-width:900px){
-  .portal-head,body:not(:has(.menu-model-anchor)) .portal-head{
-    min-height:0!important;height:auto!important;width:100%!important;max-width:100%!important;
-    margin:0 0 14px!important;padding:14px 16px!important;box-sizing:border-box!important;overflow:hidden!important;
-  }
-  .portal-brand,body:not(:has(.menu-model-anchor)) .portal-brand{
-    display:grid!important;grid-template-columns:70px 1px minmax(0,1fr) 1px 110px!important;
-    align-items:center!important;justify-items:center!important;column-gap:10px!important;
-    width:100%!important;max-width:100%!important;min-height:72px!important;height:auto!important;
-    padding:0!important;margin:0!important;box-sizing:border-box!important;
-  }
-  .portal-logo-claro{grid-column:1!important;width:66px!important;height:66px!important;max-width:66px!important;object-fit:contain!important}
-  .portal-brand>.portal-sep:nth-of-type(1){grid-column:2!important}
-  .portal-title{grid-column:3!important;min-width:0!important;width:100%!important;max-width:100%!important;margin:0!important;padding:0 4px!important;text-align:center!important;font-size:clamp(1.12rem,3.2vw,1.55rem)!important;line-height:1.12!important;white-space:normal!important;word-break:normal!important;overflow-wrap:normal!important;writing-mode:horizontal-tb!important}
-  .portal-brand>.portal-sep:nth-of-type(2){grid-column:4!important}
-  .portal-logo-logistica{grid-column:5!important;width:104px!important;height:54px!important;max-width:104px!important;object-fit:contain!important}
-}
-@media (max-width:580px){
-  .block-container{padding-top:2.15rem!important;padding-left:.5rem!important;padding-right:.5rem!important}
-  .portal-head,body:not(:has(.menu-model-anchor)) .portal-head{
-    min-height:0!important;height:auto!important;width:100%!important;max-width:100%!important;
-    margin:0 0 12px!important;padding:10px 8px!important;border-radius:0 0 16px 16px!important;
-  }
-  .portal-brand,body:not(:has(.menu-model-anchor)) .portal-brand{
-    display:grid!important;grid-template-columns:50px 1px minmax(0,1fr) 1px 72px!important;
-    align-items:center!important;justify-items:center!important;column-gap:5px!important;
-    min-height:58px!important;height:auto!important;width:100%!important;max-width:100%!important;
-    padding:0!important;margin:0!important;
-  }
-  .portal-logo-claro{grid-column:1!important;width:48px!important;height:48px!important;max-width:48px!important}
-  .portal-brand>.portal-sep:nth-of-type(1){grid-column:2!important;width:1px!important;height:30px!important}
-  .portal-title{grid-column:3!important;width:100%!important;min-width:0!important;max-width:100%!important;padding:0 2px!important;font-size:clamp(.72rem,3.55vw,.94rem)!important;line-height:1.1!important;letter-spacing:-.05px!important;white-space:normal!important;word-break:normal!important;overflow-wrap:normal!important;hyphens:none!important;writing-mode:horizontal-tb!important;text-orientation:mixed!important}
-  .portal-brand>.portal-sep:nth-of-type(2){grid-column:4!important;width:1px!important;height:30px!important}
-  .portal-logo-logistica{grid-column:5!important;width:69px!important;height:40px!important;max-width:69px!important}
-
-  /* Forca o controle publico para duas colunas e duas linhas na ordem original. */
-  .access-menu-anchor + div [data-testid="stSegmentedControl"],
-  .st-key-modo [data-testid="stSegmentedControl"]{width:100%!important;max-width:100%!important;overflow:visible!important}
-  .access-menu-anchor + div [data-testid="stSegmentedControl"]>div,
-  .access-menu-anchor + div [data-testid="stSegmentedControl"]>div>div,
-  .st-key-modo [data-testid="stSegmentedControl"]>div,
-  .st-key-modo [data-testid="stSegmentedControl"]>div>div{
-    display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;
-    grid-auto-flow:row!important;gap:6px!important;width:100%!important;max-width:100%!important;
-    border:0!important;background:transparent!important;overflow:visible!important;
-  }
-  .st-key-modo [data-testid="stSegmentedControl"] button,
-  .st-key-modo [data-testid="stSegmentedControl"] label{
-    width:100%!important;min-width:0!important;max-width:none!important;min-height:44px!important;height:auto!important;
-    margin:0!important;padding:7px 5px!important;border:1px solid #c8c8c8!important;border-radius:10px!important;background:#fff!important;
-  }
-  .st-key-modo [data-testid="stSegmentedControl"] button:nth-of-type(1),.st-key-modo [data-testid="stSegmentedControl"] label:nth-of-type(1){grid-column:1!important;grid-row:1!important}
-  .st-key-modo [data-testid="stSegmentedControl"] button:nth-of-type(2),.st-key-modo [data-testid="stSegmentedControl"] label:nth-of-type(2){grid-column:2!important;grid-row:1!important}
-  .st-key-modo [data-testid="stSegmentedControl"] button:nth-of-type(3),.st-key-modo [data-testid="stSegmentedControl"] label:nth-of-type(3){grid-column:1!important;grid-row:2!important}
-  .st-key-modo [data-testid="stSegmentedControl"] button:nth-of-type(4),.st-key-modo [data-testid="stSegmentedControl"] label:nth-of-type(4){grid-column:2!important;grid-row:2!important}
-  .st-key-modo [data-testid="stSegmentedControl"] button *,
-  .st-key-modo [data-testid="stSegmentedControl"] label *{
-    font-size:.78rem!important;line-height:1.12!important;white-space:normal!important;text-align:center!important;word-break:normal!important;overflow-wrap:anywhere!important;
-  }
+@media(max-width:580px){
+ .portal-head,body:not(:has(.menu-model-anchor)) .portal-head{min-height:0!important;height:auto!important;margin:0 0 12px!important;padding:10px 8px!important;width:100%!important;max-width:100%!important;overflow:hidden!important}
+ .portal-brand,body:not(:has(.menu-model-anchor)) .portal-brand{display:grid!important;grid-template-columns:50px 1px minmax(0,1fr) 1px 72px!important;align-items:center!important;justify-items:center!important;gap:5px!important;min-height:58px!important;height:auto!important;width:100%!important;max-width:100%!important;padding:0!important;margin:0!important}
+ .portal-logo-claro{grid-column:1!important;width:48px!important;height:48px!important;max-width:48px!important}
+ .portal-brand>.portal-sep:nth-of-type(1){grid-column:2!important;width:1px!important;height:30px!important}
+ .portal-title{grid-column:3!important;width:100%!important;min-width:0!important;max-width:100%!important;font-size:clamp(.72rem,3.55vw,.94rem)!important;line-height:1.1!important;white-space:normal!important;word-break:normal!important;overflow-wrap:normal!important;writing-mode:horizontal-tb!important;text-align:center!important}
+ .portal-brand>.portal-sep:nth-of-type(2){grid-column:4!important;width:1px!important;height:30px!important}
+ .portal-logo-logistica{grid-column:5!important;width:69px!important;height:40px!important;max-width:69px!important}
+ .st-key-modo [data-testid="stSegmentedControl"]>div,.st-key-modo [data-testid="stSegmentedControl"]>div>div{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;grid-auto-flow:row!important;gap:6px!important;width:100%!important;max-width:100%!important;border:0!important;background:transparent!important;overflow:visible!important}
+ .st-key-modo [data-testid="stSegmentedControl"] button,.st-key-modo [data-testid="stSegmentedControl"] label{width:100%!important;min-width:0!important;max-width:none!important;min-height:44px!important;height:auto!important;margin:0!important;padding:7px 5px!important;border:1px solid #c8c8c8!important;border-radius:10px!important;background:#fff!important}
+ .st-key-modo [data-testid="stSegmentedControl"] button *,.st-key-modo [data-testid="stSegmentedControl"] label *{font-size:.78rem!important;line-height:1.12!important;white-space:normal!important;text-align:center!important}
 }
 </style>
 <div class="portal-head portal-head-base">
