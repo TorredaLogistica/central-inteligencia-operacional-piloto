@@ -449,6 +449,21 @@ div[data-testid="stHorizontalBlock"]:has(.header-area-anchor) [data-testid="stSe
 }
 @media(max-width:900px){div[data-testid="stHorizontalBlock"]:has(.header-user-name){top:118px;right:16px;width:170px!important}}
 @media(max-width:580px){div[data-testid="stHorizontalBlock"]:has(.header-user-name){top:132px;left:50%;right:auto;transform:translateX(-50%);width:180px!important}.header-user-name{font-size:.82rem}}
+
+/* Realoca as abas operacionais para logo abaixo do cabecalho */
+.portal-head{margin-bottom:18px!important}
+div[data-testid="stHorizontalBlock"]:has(.header-area-anchor){
+  position:relative!important;top:auto!important;left:auto!important;right:auto!important;
+  transform:none!important;width:100%!important;z-index:10!important;
+  display:flex!important;justify-content:center!important;margin:-2px auto 18px!important;
+}
+div[data-testid="stHorizontalBlock"]:has(.header-area-anchor)>div:first-child,
+div[data-testid="stHorizontalBlock"]:has(.header-area-anchor)>div:last-child{display:block!important}
+div[data-testid="stHorizontalBlock"]:has(.header-area-anchor)>div:nth-child(2){min-width:390px!important;max-width:520px!important;margin:0 auto!important}
+div[data-testid="stHorizontalBlock"]:has(.header-area-anchor) [data-testid="stSegmentedControl"]{width:100%!important;display:flex!important;justify-content:center!important}
+div[data-testid="stHorizontalBlock"]:has(.header-area-anchor) [data-testid="stSegmentedControl"]>div{justify-content:center!important;background:transparent!important}
+@media(max-width:900px){div[data-testid="stHorizontalBlock"]:has(.header-area-anchor){position:relative!important;top:auto!important;margin:0 auto 16px!important;width:100%!important}div[data-testid="stHorizontalBlock"]:has(.header-area-anchor)>div:nth-child(2){min-width:360px!important;max-width:500px!important}}
+@media(max-width:580px){div[data-testid="stHorizontalBlock"]:has(.header-area-anchor){position:relative!important;top:auto!important;margin:0 auto 14px!important;width:100%!important}div[data-testid="stHorizontalBlock"]:has(.header-area-anchor)>div:nth-child(2){min-width:0!important;max-width:100%!important;width:100%!important}}
 </style>
 <div class="portal-head portal-head-base">
   <div class="portal-brand">
