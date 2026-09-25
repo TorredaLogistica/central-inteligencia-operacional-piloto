@@ -511,6 +511,58 @@ body:not(:has(.header-user-name)) .portal-brand{min-height:88px!important}
   .portal-head{min-height:162px!important;padding:18px 10px 16px!important}
   div[data-testid="stHorizontalBlock"]:has(.header-area-anchor)>div:nth-child(3){justify-self:center!important}
 }
+
+/* Ajuste solicitado: areas no lado direito e contraste forte */
+div[data-testid="stHorizontalBlock"]:has(.header-area-anchor){
+  position:relative!important;top:auto!important;left:auto!important;right:auto!important;transform:none!important;
+  width:100%!important;display:flex!important;align-items:flex-start!important;justify-content:flex-end!important;
+  margin:0 auto 18px!important;gap:16px!important;
+}
+/* Reduz o espaco vazio da esquerda e leva o conjunto de areas para a direita */
+div[data-testid="stHorizontalBlock"]:has(.header-area-anchor)>div:nth-child(1){display:block!important;flex:1 1 auto!important}
+div[data-testid="stHorizontalBlock"]:has(.header-area-anchor)>div:nth-child(2){display:block!important;flex:0 0 440px!important;min-width:440px!important;max-width:440px!important;margin-left:auto!important}
+div[data-testid="stHorizontalBlock"]:has(.header-area-anchor)>div:nth-child(3){display:block!important;flex:0 0 190px!important;min-width:190px!important;max-width:190px!important}
+
+/* Botoes inativos: branco puro, borda cinza forte, texto preto em negrito */
+div[data-testid="stHorizontalBlock"]:has(.header-area-anchor) [data-testid="stSegmentedControl"]{width:100%!important;display:flex!important;justify-content:flex-end!important}
+div[data-testid="stHorizontalBlock"]:has(.header-area-anchor) [data-testid="stSegmentedControl"]>div{justify-content:flex-end!important;margin-left:auto!important;background:transparent!important}
+div[data-testid="stHorizontalBlock"]:has(.header-area-anchor) [data-testid="stSegmentedControl"] button{
+  min-height:46px!important;background:#ffffff!important;border:2px solid #b8b8b8!important;color:#101010!important;
+  font-weight:900!important;font-size:1rem!important;padding:9px 24px!important;opacity:1!important;
+}
+div[data-testid="stHorizontalBlock"]:has(.header-area-anchor) [data-testid="stSegmentedControl"] button *,
+div[data-testid="stHorizontalBlock"]:has(.header-area-anchor) [data-testid="stSegmentedControl"] label *{
+  color:#101010!important;font-weight:900!important;opacity:1!important;
+}
+/* Selecionado: vermelho intenso e texto branco */
+div[data-testid="stHorizontalBlock"]:has(.header-area-anchor) [data-testid="stSegmentedControl"] button[aria-checked="true"],
+div[data-testid="stHorizontalBlock"]:has(.header-area-anchor) [data-testid="stSegmentedControl"] button[aria-pressed="true"],
+div[data-testid="stHorizontalBlock"]:has(.header-area-anchor) [data-testid="stSegmentedControl"] button[data-state="on"],
+div[data-testid="stHorizontalBlock"]:has(.header-area-anchor) [data-testid="stSegmentedControl"] label:has(input:checked),
+div[data-testid="stHorizontalBlock"]:has(.header-area-anchor) [data-testid="stSegmentedControl"] label:has(input:checked) button{
+  background:#d71920!important;border-color:#d71920!important;color:#ffffff!important;
+  box-shadow:0 8px 18px rgba(180,20,25,.32)!important;opacity:1!important;
+}
+div[data-testid="stHorizontalBlock"]:has(.header-area-anchor) [data-testid="stSegmentedControl"] button[aria-checked="true"] *,
+div[data-testid="stHorizontalBlock"]:has(.header-area-anchor) [data-testid="stSegmentedControl"] button[aria-pressed="true"] *,
+div[data-testid="stHorizontalBlock"]:has(.header-area-anchor) [data-testid="stSegmentedControl"] button[data-state="on"] *,
+div[data-testid="stHorizontalBlock"]:has(.header-area-anchor) [data-testid="stSegmentedControl"] label:has(input:checked) *{
+  color:#ffffff!important;font-weight:900!important;opacity:1!important;
+}
+div[data-testid="stHorizontalBlock"]:has(.header-area-anchor) [data-testid="stSegmentedControl"] button:hover{
+  border-color:#d71920!important;box-shadow:0 5px 12px rgba(180,20,25,.18)!important;
+}
+@media(max-width:900px){
+  div[data-testid="stHorizontalBlock"]:has(.header-area-anchor){display:grid!important;grid-template-columns:1fr!important;justify-items:end!important}
+  div[data-testid="stHorizontalBlock"]:has(.header-area-anchor)>div:nth-child(1){display:none!important}
+  div[data-testid="stHorizontalBlock"]:has(.header-area-anchor)>div:nth-child(2){width:min(440px,100%)!important;min-width:0!important;max-width:440px!important;justify-self:end!important}
+  div[data-testid="stHorizontalBlock"]:has(.header-area-anchor)>div:nth-child(3){width:190px!important;min-width:190px!important;max-width:190px!important;justify-self:end!important}
+}
+@media(max-width:580px){
+  div[data-testid="stHorizontalBlock"]:has(.header-area-anchor)>div:nth-child(2){width:100%!important;max-width:100%!important;justify-self:stretch!important}
+  div[data-testid="stHorizontalBlock"]:has(.header-area-anchor)>div:nth-child(3){justify-self:end!important}
+  div[data-testid="stHorizontalBlock"]:has(.header-area-anchor) [data-testid="stSegmentedControl"] button{font-size:.84rem!important;padding:8px 13px!important}
+}
 </style>
 <div class="portal-head portal-head-base">
   <div class="portal-brand">
