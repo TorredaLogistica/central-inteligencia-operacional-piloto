@@ -5,6 +5,7 @@ import os
 import secrets
 import sqlite3
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 from pathlib import Path
 
 import streamlit as st
@@ -12,12 +13,26 @@ import streamlit as st
 DB_PATH = Path(os.getenv("TORRE_DB_PATH", "torre_usuarios.db"))
 USUARIOS_JSON = Path(os.getenv("TORRE_USUARIOS_JSON", "usuarios.json"))
 ITERACOES = 600_000
+FUSO_BRASILIA = ZoneInfo("America/Sao_Paulo")
 
 st.set_page_config(page_title="Claro | Central de Inteligência Operacional", page_icon="🔴", layout="wide")
 
 
 def agora_iso():
+    # Armazena o instante em UTC para manter ordenação e auditoria consistentes.
     return datetime.now(timezone.utc).isoformat()
+
+
+def data_hora_brasilia(valor):
+    if not valor:
+        return "-"
+    try:
+        dt = datetime.fromisoformat(str(valor).replace("Z", "+00:00"))
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt.astimezone(FUSO_BRASILIA).strftime("%d/%m/%Y %H:%M:%S")
+    except (TypeError, ValueError):
+        return str(valor)
 
 
 def normalizar_usuario(valor: str) -> str:
@@ -201,6 +216,38 @@ def decidir_solicitacao(solicitacao_id, aprovar, administrador, observacao=""):
                     (f"{status}_{s['tipo']}",str(solicitacao_id),administrador,agora_iso()))
 
 
+def listar_usuarios():
+    with conectar() as con:
+        return [dict(x) for x in con.execute(
+            """SELECT id,nome_completo,usuario,email,ativo,perfil,criado_em,aprovado_em,atualizado_em
+               FROM usuarios ORDER BY COALESCE(nome_completo,usuario,email,nome_hash)"""
+        ).fetchall()]
+
+
+def alterar_status_usuario(usuario_id, ativo, administrador):
+    with conectar() as con:
+        usuario = con.execute("SELECT id,usuario,email,ativo FROM usuarios WHERE id=?", (usuario_id,)).fetchone()
+        if not usuario:
+            return False
+        con.execute("UPDATE usuarios SET ativo=?,atualizado_em=? WHERE id=?", (1 if ativo else 0, agora_iso(), usuario_id))
+        con.execute("INSERT INTO auditoria(acao,referencia,administrador,criado_em) VALUES(?,?,?,?)",
+                    ("REATIVAR_USUARIO" if ativo else "DESATIVAR_USUARIO", str(usuario_id), administrador, agora_iso()))
+    return True
+
+
+def excluir_usuario(usuario_id, administrador):
+    with conectar() as con:
+        usuario = con.execute("SELECT id FROM usuarios WHERE id=?", (usuario_id,)).fetchone()
+        if not usuario:
+            return False
+        # Preserva o histórico das solicitações, removendo apenas o vínculo técnico.
+        con.execute("UPDATE solicitacoes SET usuario_id=NULL WHERE usuario_id=?", (usuario_id,))
+        con.execute("DELETE FROM usuarios WHERE id=?", (usuario_id,))
+        con.execute("INSERT INTO auditoria(acao,referencia,administrador,criado_em) VALUES(?,?,?,?)",
+                    ("EXCLUIR_USUARIO", str(usuario_id), administrador, agora_iso()))
+    return True
+
+
 def exportar_json_compatibilidade():
     with conectar() as con:
         linhas = con.execute("SELECT nome_hash,email_hash,senha_hash,salt,iteracoes,codigo_dispositivo_hash,ativo,aprovado_em FROM usuarios").fetchall()
@@ -226,24 +273,73 @@ if "admin_logado" not in st.session_state:
 if st.session_state.admin_logado:
     with conectar() as con:
         pendentes = [dict(x) for x in con.execute("SELECT * FROM solicitacoes WHERE status='PENDENTE' ORDER BY criado_em").fetchall()]
+    usuarios_admin = listar_usuarios()
+
     st.title("Administração")
     st.markdown(f'<div class="pendencia">{len(pendentes)} solicitação(ões) pendente(s)</div>', unsafe_allow_html=True)
+    st.caption("Datas e horários apresentados no fuso de Brasília (America/Sao_Paulo).")
     st.write("")
-    for item in pendentes:
-        titulo = "Novo cadastro" if item["tipo"] == "CADASTRO" else "Redefinição de senha"
-        with st.container(border=True):
-            st.subheader(f"{titulo} | {item['usuario']}")
-            st.write(f"**Nome:** {item['nome_completo'] or 'Cadastro legado'}")
-            st.write(f"**E-mail:** {item['email']}")
-            st.write(f"**Solicitado em:** {item['criado_em']}")
-            obs = st.text_input("Observação", key=f"obs_{item['id']}")
-            c1, c2 = st.columns(2)
-            if c1.button("Aprovar", key=f"aprovar_{item['id']}", type="primary", use_container_width=True):
-                decidir_solicitacao(item["id"], True, st.session_state.admin_logado, obs)
-                st.rerun()
-            if c2.button("Rejeitar", key=f"rejeitar_{item['id']}", use_container_width=True):
-                decidir_solicitacao(item["id"], False, st.session_state.admin_logado, obs)
-                st.rerun()
+
+    aba_pendencias, aba_usuarios = st.tabs([
+        f"Solicitações pendentes ({len(pendentes)})",
+        f"Usuários cadastrados ({len(usuarios_admin)})",
+    ])
+
+    with aba_pendencias:
+        if not pendentes:
+            st.info("Não existem solicitações pendentes.")
+        for item in pendentes:
+            titulo = "Novo cadastro" if item["tipo"] == "CADASTRO" else "Redefinição de senha"
+            with st.container(border=True):
+                st.subheader(f"{titulo} | {item['usuario']}")
+                st.write(f"**Nome:** {item['nome_completo'] or 'Cadastro legado'}")
+                st.write(f"**E-mail:** {item['email']}")
+                st.write(f"**Solicitado em:** {data_hora_brasilia(item['criado_em'])} (Brasília)")
+                obs = st.text_input("Observação", key=f"obs_{item['id']}")
+                c1, c2 = st.columns(2)
+                if c1.button("Aprovar", key=f"aprovar_{item['id']}", type="primary", use_container_width=True):
+                    decidir_solicitacao(item["id"], True, st.session_state.admin_logado, obs)
+                    st.success(f"Solicitação aprovada em {data_hora_brasilia(agora_iso())} (Brasília).")
+                    st.rerun()
+                if c2.button("Rejeitar", key=f"rejeitar_{item['id']}", use_container_width=True):
+                    decidir_solicitacao(item["id"], False, st.session_state.admin_logado, obs)
+                    st.warning(f"Solicitação rejeitada em {data_hora_brasilia(agora_iso())} (Brasília).")
+                    st.rerun()
+
+    with aba_usuarios:
+        if not usuarios_admin:
+            st.info("Nenhum usuário aprovado foi cadastrado ainda.")
+        for usuario_item in usuarios_admin:
+            nome_exibicao = usuario_item["nome_completo"] or usuario_item["usuario"] or "Cadastro legado"
+            status_atual = "Ativo" if usuario_item["ativo"] else "Desativado"
+            with st.expander(f"{nome_exibicao} | {status_atual}", expanded=False):
+                c1, c2 = st.columns(2)
+                with c1:
+                    st.write(f"**Nome:** {usuario_item['nome_completo'] or 'Não disponível no cadastro legado'}")
+                    st.write(f"**Usuário:** {usuario_item['usuario'] or 'Não disponível no cadastro legado'}")
+                    st.write(f"**E-mail:** {usuario_item['email'] or 'Não disponível no cadastro legado'}")
+                    st.write(f"**Perfil:** {usuario_item['perfil']}")
+                with c2:
+                    st.write(f"**Status atual:** {status_atual}")
+                    st.write(f"**Criado em:** {data_hora_brasilia(usuario_item['criado_em'])}")
+                    st.write(f"**Aprovado em:** {data_hora_brasilia(usuario_item['aprovado_em'])}")
+                    st.write(f"**Atualizado em:** {data_hora_brasilia(usuario_item['atualizado_em'])}")
+
+                acao1, acao2 = st.columns(2)
+                if usuario_item["ativo"]:
+                    if acao1.button("Desativar usuário", key=f"desativar_{usuario_item['id']}", use_container_width=True):
+                        alterar_status_usuario(usuario_item["id"], False, st.session_state.admin_logado)
+                        st.rerun()
+                else:
+                    if acao1.button("Reativar usuário", key=f"reativar_{usuario_item['id']}", type="primary", use_container_width=True):
+                        alterar_status_usuario(usuario_item["id"], True, st.session_state.admin_logado)
+                        st.rerun()
+
+                confirmar_exclusao = acao2.checkbox("Confirmar exclusão", key=f"confirma_exclusao_{usuario_item['id']}")
+                if acao2.button("Excluir definitivamente", key=f"excluir_{usuario_item['id']}", disabled=not confirmar_exclusao, use_container_width=True):
+                    excluir_usuario(usuario_item["id"], st.session_state.admin_logado)
+                    st.rerun()
+
     st.download_button("Exportar usuarios.json compatível", exportar_json_compatibilidade(), "usuarios.json", "application/json")
     if st.button("Sair da administração"):
         st.session_state.admin_logado = None
