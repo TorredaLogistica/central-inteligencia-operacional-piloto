@@ -115,11 +115,10 @@ def exibir_central_indicadores():
     nome = usuario_atual.get("nome_completo") or usuario_atual.get("usuario") or "Usuário"
 
     usuario_exibicao = usuario_atual.get("usuario") or nome
-    usuario_col, sair_col = st.columns([4, 1])
+    espaco_usuario, usuario_col = st.columns([5, 1])
     with usuario_col:
         st.markdown(f'<div class="header-user-name">Usuário: {usuario_exibicao}</div>', unsafe_allow_html=True)
-    with sair_col:
-        if st.button("Sair", use_container_width=True, type="secondary"):
+        if st.button("Sair", use_container_width=True, type="secondary", key="btn_sair_header"):
             st.session_state.usuario_logado = None
             st.rerun()
 
@@ -412,6 +411,44 @@ body:not(:has(.header-user-name)) .portal-head{min-height:132px!important;paddin
 body:not(:has(.header-user-name)) .portal-brand{min-height:82px!important;padding-top:0!important}
 @media(max-width:900px){body:not(:has(.header-user-name)) .portal-head{min-height:148px!important;padding-bottom:20px!important}}
 @media(max-width:580px){body:not(:has(.header-user-name)) .portal-head{min-height:168px!important;padding-top:18px!important;padding-bottom:20px!important}}
+
+/* Correcao definitiva: usuario com Sair abaixo e contraste das abas */
+div[data-testid="stHorizontalBlock"]:has(.header-user-name){
+  position:absolute!important;top:48px;right:26px;width:190px!important;z-index:999;display:block!important;
+}
+div[data-testid="stHorizontalBlock"]:has(.header-user-name)>div:first-child{display:none!important}
+div[data-testid="stHorizontalBlock"]:has(.header-user-name)>div:last-child{width:100%!important;flex:0 0 100%!important}
+.header-user-name{display:block;text-align:center;color:#fff!important;font-weight:900!important;font-size:.95rem;white-space:nowrap;padding:0 0 8px!important}
+div[data-testid="stHorizontalBlock"]:has(.header-user-name) [data-testid="stButton"]{display:flex!important;justify-content:center!important;width:100%!important}
+div[data-testid="stHorizontalBlock"]:has(.header-user-name) [data-testid="stButton"] button{
+  width:78px!important;min-width:78px!important;min-height:40px!important;margin:0 auto!important;padding:0 14px!important;
+  background:rgba(218,41,28,.28)!important;border:1.5px solid #fff!important;border-radius:12px!important;
+}
+div[data-testid="stHorizontalBlock"]:has(.header-user-name) [data-testid="stButton"] button p,
+div[data-testid="stHorizontalBlock"]:has(.header-user-name) [data-testid="stButton"] button span{color:#fff!important;font-weight:850!important;opacity:1!important}
+
+/* Abas inativas: branco, texto preto e negrito */
+div[data-testid="stHorizontalBlock"]:has(.header-area-anchor) [data-testid="stSegmentedControl"] button{
+  background:#fff!important;border:1.5px solid rgba(205,205,205,.95)!important;color:#111!important;font-weight:900!important;
+}
+div[data-testid="stHorizontalBlock"]:has(.header-area-anchor) [data-testid="stSegmentedControl"] button *,
+div[data-testid="stHorizontalBlock"]:has(.header-area-anchor) [data-testid="stSegmentedControl"] label *{color:#111!important;font-weight:900!important;opacity:1!important}
+/* Cobre as variacoes de estado selecionado usadas pelo Streamlit/BaseWeb */
+div[data-testid="stHorizontalBlock"]:has(.header-area-anchor) [data-testid="stSegmentedControl"] button[aria-checked="true"],
+div[data-testid="stHorizontalBlock"]:has(.header-area-anchor) [data-testid="stSegmentedControl"] button[aria-pressed="true"],
+div[data-testid="stHorizontalBlock"]:has(.header-area-anchor) [data-testid="stSegmentedControl"] button[data-state="on"],
+div[data-testid="stHorizontalBlock"]:has(.header-area-anchor) [data-testid="stSegmentedControl"] label:has(input:checked),
+div[data-testid="stHorizontalBlock"]:has(.header-area-anchor) [data-testid="stSegmentedControl"] label:has(input:checked) button{
+  background:#da291c!important;border-color:#da291c!important;color:#fff!important;box-shadow:0 7px 16px rgba(80,0,0,.20)!important;
+}
+div[data-testid="stHorizontalBlock"]:has(.header-area-anchor) [data-testid="stSegmentedControl"] button[aria-checked="true"] *,
+div[data-testid="stHorizontalBlock"]:has(.header-area-anchor) [data-testid="stSegmentedControl"] button[aria-pressed="true"] *,
+div[data-testid="stHorizontalBlock"]:has(.header-area-anchor) [data-testid="stSegmentedControl"] button[data-state="on"] *,
+div[data-testid="stHorizontalBlock"]:has(.header-area-anchor) [data-testid="stSegmentedControl"] label:has(input:checked) *{
+  color:#fff!important;font-weight:900!important;opacity:1!important;
+}
+@media(max-width:900px){div[data-testid="stHorizontalBlock"]:has(.header-user-name){top:118px;right:16px;width:170px!important}}
+@media(max-width:580px){div[data-testid="stHorizontalBlock"]:has(.header-user-name){top:132px;left:50%;right:auto;transform:translateX(-50%);width:180px!important}.header-user-name{font-size:.82rem}}
 </style>
 <div class="portal-head portal-head-base">
   <div class="portal-brand">
