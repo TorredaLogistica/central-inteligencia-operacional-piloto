@@ -115,15 +115,8 @@ def exibir_central_indicadores():
     nome = usuario_atual.get("nome_completo") or usuario_atual.get("usuario") or "Usuário"
 
     usuario_exibicao = usuario_atual.get("usuario") or nome
-    espaco_usuario, usuario_col = st.columns([5, 1])
-    with usuario_col:
-        st.markdown(f'<div class="header-user-name">Usuário: {usuario_exibicao}</div>', unsafe_allow_html=True)
-        if st.button("Sair", use_container_width=True, type="secondary", key="btn_sair_header"):
-            st.session_state.usuario_logado = None
-            st.rerun()
-
-    espaco1, centro, espaco2 = st.columns([1, 3, 1])
-    with centro:
+    esquerda_controles, centro_controles, direita_controles = st.columns([1.2, 2.4, 1.2])
+    with centro_controles:
         st.markdown('<span class="header-area-anchor"></span>', unsafe_allow_html=True)
         area = st.segmented_control(
             "Área operacional",
@@ -132,6 +125,11 @@ def exibir_central_indicadores():
             key="area_indicadores",
             label_visibility="collapsed",
         ) or "Armazenagem"
+    with direita_controles:
+        st.markdown(f'<div class="header-user-name">Usuário: {usuario_exibicao}</div>', unsafe_allow_html=True)
+        if st.button("Sair", use_container_width=True, type="secondary", key="btn_sair_header"):
+            st.session_state.usuario_logado = None
+            st.rerun()
     indicadores = INDICADORES.get(area, [])
 
     if not indicadores:
@@ -464,6 +462,55 @@ div[data-testid="stHorizontalBlock"]:has(.header-area-anchor) [data-testid="stSe
 div[data-testid="stHorizontalBlock"]:has(.header-area-anchor) [data-testid="stSegmentedControl"]>div{justify-content:center!important;background:transparent!important}
 @media(max-width:900px){div[data-testid="stHorizontalBlock"]:has(.header-area-anchor){position:relative!important;top:auto!important;margin:0 auto 16px!important;width:100%!important}div[data-testid="stHorizontalBlock"]:has(.header-area-anchor)>div:nth-child(2){min-width:360px!important;max-width:500px!important}}
 @media(max-width:580px){div[data-testid="stHorizontalBlock"]:has(.header-area-anchor){position:relative!important;top:auto!important;margin:0 auto 14px!important;width:100%!important}div[data-testid="stHorizontalBlock"]:has(.header-area-anchor)>div:nth-child(2){min-width:0!important;max-width:100%!important;width:100%!important}}
+
+/* Layout final: barra completa, controles abaixo e alinhados na mesma linha */
+.block-container{padding-top:3.8rem!important}
+.portal-head{min-height:126px!important;padding:20px 26px 16px!important;margin:-.35rem -1.25rem 14px!important;border-radius:0 0 24px 24px!important}
+.portal-brand{min-height:88px!important;padding-top:0!important}
+
+/* A linha que contém as áreas e o usuário fica em fluxo normal abaixo da barra */
+div[data-testid="stHorizontalBlock"]:has(.header-area-anchor){
+  position:relative!important;top:auto!important;left:auto!important;right:auto!important;transform:none!important;
+  width:100%!important;z-index:10!important;display:flex!important;align-items:flex-start!important;
+  margin:0 auto 18px!important;gap:18px!important;
+}
+div[data-testid="stHorizontalBlock"]:has(.header-area-anchor)>div:nth-child(1){display:block!important;flex:1.2 1 0!important}
+div[data-testid="stHorizontalBlock"]:has(.header-area-anchor)>div:nth-child(2){display:block!important;flex:2.4 1 0!important;min-width:390px!important;max-width:none!important;margin:0!important}
+div[data-testid="stHorizontalBlock"]:has(.header-area-anchor)>div:nth-child(3){display:block!important;flex:1.2 1 0!important;min-width:170px!important}
+
+/* Áreas perfeitamente centralizadas na página */
+div[data-testid="stHorizontalBlock"]:has(.header-area-anchor) [data-testid="stSegmentedControl"]{width:100%!important;display:flex!important;justify-content:center!important}
+div[data-testid="stHorizontalBlock"]:has(.header-area-anchor) [data-testid="stSegmentedControl"]>div{justify-content:center!important;margin:0 auto!important}
+
+/* Usuário e Sair no canto direito, logo abaixo da barra */
+div[data-testid="stHorizontalBlock"]:has(.header-area-anchor) .header-user-name{display:block!important;text-align:center!important;color:#222!important;font-weight:900!important;font-size:.92rem!important;padding:0 0 7px!important;white-space:nowrap!important}
+div[data-testid="stHorizontalBlock"]:has(.header-area-anchor) [data-testid="stButton"]{display:flex!important;justify-content:center!important;width:100%!important}
+div[data-testid="stHorizontalBlock"]:has(.header-area-anchor) [data-testid="stButton"] button{width:78px!important;min-width:78px!important;min-height:38px!important;margin:0 auto!important;background:#da291c!important;border:1.5px solid #da291c!important;border-radius:12px!important}
+div[data-testid="stHorizontalBlock"]:has(.header-area-anchor) [data-testid="stButton"] button p,
+div[data-testid="stHorizontalBlock"]:has(.header-area-anchor) [data-testid="stButton"] button span{color:#fff!important;font-weight:850!important;opacity:1!important}
+
+/* Neutraliza posicionamentos absolutos anteriores */
+div[data-testid="stHorizontalBlock"]:has(.header-user-name){position:relative!important;top:auto!important;left:auto!important;right:auto!important;transform:none!important;width:100%!important;z-index:10!important;display:flex!important}
+div[data-testid="stHorizontalBlock"]:has(.header-user-name)>div:first-child{display:block!important}
+div[data-testid="stHorizontalBlock"]:has(.header-user-name)>div:last-child{display:block!important}
+
+/* Sem usuário logado, a barra permanece proporcional e totalmente visível */
+body:not(:has(.header-user-name)) .portal-head{min-height:126px!important;padding:20px 26px 16px!important}
+body:not(:has(.header-user-name)) .portal-brand{min-height:88px!important}
+
+@media(max-width:900px){
+  .block-container{padding-top:3.4rem!important}
+  .portal-head{min-height:142px!important;padding:22px 18px 17px!important}
+  div[data-testid="stHorizontalBlock"]:has(.header-area-anchor){display:grid!important;grid-template-columns:1fr!important;gap:10px!important}
+  div[data-testid="stHorizontalBlock"]:has(.header-area-anchor)>div:nth-child(1){display:none!important}
+  div[data-testid="stHorizontalBlock"]:has(.header-area-anchor)>div:nth-child(2){min-width:0!important;width:100%!important;grid-row:1}
+  div[data-testid="stHorizontalBlock"]:has(.header-area-anchor)>div:nth-child(3){min-width:0!important;width:190px!important;justify-self:end!important;grid-row:2}
+}
+@media(max-width:580px){
+  .block-container{padding-top:3rem!important}
+  .portal-head{min-height:162px!important;padding:18px 10px 16px!important}
+  div[data-testid="stHorizontalBlock"]:has(.header-area-anchor)>div:nth-child(3){justify-self:center!important}
+}
 </style>
 <div class="portal-head portal-head-base">
   <div class="portal-brand">
