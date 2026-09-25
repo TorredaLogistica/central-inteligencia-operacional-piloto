@@ -4,6 +4,7 @@ import json
 import os
 import secrets
 import sqlite3
+from urllib.parse import quote
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 from pathlib import Path
@@ -19,15 +20,28 @@ FUSO_BRASILIA = ZoneInfo("America/Sao_Paulo")
 # Os títulos foram mantidos alinhados à Central HTML atual.
 INDICADORES = {
     "Armazenagem": [
-        {"titulo": "Canal Vermelho", "descricao": "Acompanhamento operacional e OTIF.", "url": "https://cuencjwy3ahhnzymzsspuc.streamlit.app/", "icone": "🔴"},
-        {"titulo": "Separação e Faturamento", "descricao": "Indicadores de separação, faturamento e expedição.", "url": "", "icone": "📦"},
-        {"titulo": "Indicador iPhone", "descricao": "Recebimentos, pedidos, faturamento e expedição.", "url": "", "icone": "📱"},
-        {"titulo": "Validador de Faturas", "descricao": "Acompanhamento e validação do fluxo de faturas.", "url": "", "icone": "🧾"},
+        {"titulo": "Chatbot Torre Logística", "url": "https://chatbot-logistica-e4cpfbcta3qyqchopsdjeg.streamlit.app/"},
+        {"titulo": "Separação e Faturamento", "url": "https://dashboard-slaseparacaofaturamento-mdnfzinkaebwzysne83ewp.streamlit.app/"},
+        {"titulo": "Pedidos para LPs", "url": "https://pedidoslpsaas-y44bkbmcg4kon8fogbro34.streamlit.app/"},
+        {"titulo": "Resultado do DRE", "url": "https://resultadodre-lk6rh4ahefeuwfhwrg2ioc.streamlit.app/"},
+        {"titulo": "Valores dos EAs", "url": "https://valorestoques-eas-73bxfsks3rnoxjo44fuqm7.streamlit.app/"},
+        {"titulo": "Atendimento de OVs nos TLs", "url": "https://atendimento-de-ovs-nos-tls-in3rykeacnvjxedhb7r9zc.streamlit.app/"},
+        {"titulo": "Taxa de Ocupação dos CDs", "url": "https://taxadeocupacaodoscds-tfx8ftu78n46vhvn5dxc7k.streamlit.app/"},
+        {"titulo": "Pedidos Canal Vermelho", "url": "CANAL_VERMELHO"},
+        {"titulo": "Pedidos LPs e AAs NFs não Agrupadas", "url": "https://nfs-nao-agrupadas-juqvjn8nhbzuhzzdfwknbl.streamlit.app/"},
+        {"titulo": "Faturas dos OPLs", "url": "https://faturasdosopls-fdgzskwvbciwkgubekfjcz.streamlit.app/"},
+        {"titulo": "Recebimento de Usados", "url": "https://controlederecebimentodeusados-ucfnrvqwuceiet5q7tt4wn.streamlit.app/"},
+        {"titulo": "Nível de Serviços dos OPLs", "url": "https://niveldeservicoopls-sgrryyugyheukmxp2xtzp8.streamlit.app/"},
+        {"titulo": "Forecast e Realizado", "url": "https://forecasterealizado-kebvdtavq5yc8s9kwrfqiu.streamlit.app/"},
+        {"titulo": "Simulação de Pedidos", "url": "https://simulacaopedidos-myjtjrm3nklxzprutjpbd5.streamlit.app/"},
     ],
     "Triagem": [],
     "Reversa": [],
 }
 
+CANAL_VERMELHO_URL = "https://cuencjwy3ahhnzymzsspuc.streamlit.app/"
+CANAL_VERMELHO_APP_ID = "canal_vermelho"
+CANAL_VERMELHO_SHARED_KEY = "b9342075f69fbf07834993550e178cb29eec8346a37259c03c8444e7df541e01"
 
 st.set_page_config(page_title="Claro | Central de Inteligência Operacional", page_icon="🔴", layout="wide")
 
@@ -81,6 +95,21 @@ def conectar():
     return con
 
 
+def gerar_url_canal_vermelho():
+    ts = str(int(datetime.now(timezone.utc).timestamp()))
+    nonce = secrets.token_hex(16)
+    mensagem = f"{CANAL_VERMELHO_APP_ID}|{ts}|{nonce}"
+    assinatura = hmac.new(
+        CANAL_VERMELHO_SHARED_KEY.encode("utf-8"),
+        mensagem.encode("utf-8"),
+        hashlib.sha256,
+    ).hexdigest()
+    return (
+        f"{CANAL_VERMELHO_URL}?portal_ts={quote(ts)}"
+        f"&portal_nonce={quote(nonce)}&portal_sig={quote(assinatura)}"
+    )
+
+
 def exibir_central_indicadores():
     usuario_atual = st.session_state.usuario_logado or {}
     nome = usuario_atual.get("nome_completo") or usuario_atual.get("usuario") or "Usuário"
@@ -93,33 +122,29 @@ def exibir_central_indicadores():
             st.session_state.usuario_logado = None
             st.rerun()
 
-    st.subheader("Indicadores")
-    areas = list(INDICADORES.keys())
-    area = st.segmented_control("Área operacional", areas, default="Armazenagem", key="area_indicadores") or "Armazenagem"
+    area = st.segmented_control(
+        "Área operacional",
+        list(INDICADORES.keys()),
+        default="Armazenagem",
+        key="area_indicadores",
+    ) or "Armazenagem"
     indicadores = INDICADORES.get(area, [])
 
     if not indicadores:
         st.info(f"Nenhum indicador disponível para a área de {area} no momento.")
         return
 
-    colunas = st.columns(3)
-    for indice, indicador in enumerate(indicadores):
-        with colunas[indice % 3]:
-            with st.container(border=True):
-                st.markdown(f"### {indicador['icone']} {indicador['titulo']}")
-                st.write(indicador["descricao"])
-                if indicador["url"]:
+    for inicio in range(0, len(indicadores), 5):
+        linha = indicadores[inicio:inicio + 5]
+        colunas = st.columns(5, gap="medium")
+        for coluna, indicador in zip(colunas, linha):
+            with coluna:
+                destino = gerar_url_canal_vermelho() if indicador["url"] == "CANAL_VERMELHO" else indicador["url"]
+                with st.container(border=True):
                     st.link_button(
-                        "Acessar indicador",
-                        indicador["url"],
+                        indicador["titulo"],
+                        destino,
                         type="primary",
-                        use_container_width=True,
-                    )
-                else:
-                    st.button(
-                        "URL ainda não configurada",
-                        key=f"indisponivel_{area}_{indice}",
-                        disabled=True,
                         use_container_width=True,
                     )
 
@@ -317,6 +342,11 @@ importar_json_legado()
 st.markdown("""
 <style>
 .stApp{background:#eef0f3}.claro-head{padding:18px 24px;border-radius:0 0 18px 18px;background:linear-gradient(180deg,#b51f25,#f47b45);color:white;margin:-1rem -1rem 1.5rem}.claro-head h1{margin:0;font-size:1.65rem}.claro-head p{margin:.35rem 0 0;opacity:.9}.indicador-card{min-height:210px}.pendencia{padding:.8rem 1rem;border-radius:12px;background:#fff3cd;border:1px solid #ffec99;color:#7a5200;font-weight:700}
+
+/* Cards dos indicadores: somente nome, cinco colunas em telas amplas */
+[data-testid="stVerticalBlockBorderWrapper"]{background:rgba(255,255,255,.95);border-radius:16px!important;box-shadow:0 6px 16px rgba(0,0,0,.10);min-height:118px;display:flex;align-items:center}
+[data-testid="stLinkButton"]{width:100%}
+[data-testid="stLinkButton"] a{min-height:72px;display:flex;align-items:center;justify-content:center;text-align:center;font-weight:800;line-height:1.25;white-space:normal}
 </style><div class="claro-head"><h1>Claro | Central de Inteligência Operacional</h1><p>Cadastro, aprovação e recuperação de acesso</p></div>
 """, unsafe_allow_html=True)
 
