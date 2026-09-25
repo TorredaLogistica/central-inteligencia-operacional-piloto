@@ -115,16 +115,25 @@ def exibir_central_indicadores():
     nome = usuario_atual.get("nome_completo") or usuario_atual.get("usuario") or "Usuário"
 
     usuario_exibicao = usuario_atual.get("usuario") or nome
-    esquerda_controles, centro_controles, direita_controles = st.columns([1.2, 2.4, 1.2])
-    with centro_controles:
+    if "area_indicadores" not in st.session_state:
+        st.session_state.area_indicadores = "Armazenagem"
+
+    esquerda_controles, centro_controles, direita_controles = st.columns([2.5, 1.3, 1.2])
+    with esquerda_controles:
         st.markdown('<span class="header-area-anchor"></span>', unsafe_allow_html=True)
-        area = st.segmented_control(
-            "Área operacional",
-            list(INDICADORES.keys()),
-            default="Armazenagem",
-            key="area_indicadores",
-            label_visibility="collapsed",
-        ) or "Armazenagem"
+        area_cols = st.columns(3, gap="small")
+        for coluna_area, nome_area in zip(area_cols, INDICADORES.keys()):
+            with coluna_area:
+                selecionado = st.session_state.area_indicadores == nome_area
+                if st.button(
+                    nome_area,
+                    key=f"area_btn_{nome_area}",
+                    type="primary" if selecionado else "secondary",
+                    use_container_width=True,
+                ):
+                    st.session_state.area_indicadores = nome_area
+                    st.rerun()
+        area = st.session_state.area_indicadores
     with direita_controles:
         st.markdown(f'<div class="header-user-name">Usuário: {usuario_exibicao}</div>', unsafe_allow_html=True)
         if st.button("Sair", use_container_width=True, type="secondary", key="btn_sair_header"):
@@ -562,6 +571,56 @@ div[data-testid="stHorizontalBlock"]:has(.header-area-anchor) [data-testid="stSe
   div[data-testid="stHorizontalBlock"]:has(.header-area-anchor)>div:nth-child(2){width:100%!important;max-width:100%!important;justify-self:stretch!important}
   div[data-testid="stHorizontalBlock"]:has(.header-area-anchor)>div:nth-child(3){justify-self:end!important}
   div[data-testid="stHorizontalBlock"]:has(.header-area-anchor) [data-testid="stSegmentedControl"] button{font-size:.84rem!important;padding:8px 13px!important}
+}
+
+/* Versao definitiva: botoes de area alinhados a esquerda com estado forte */
+div[data-testid="stHorizontalBlock"]:has(.header-area-anchor){
+  position:relative!important;top:auto!important;left:auto!important;right:auto!important;transform:none!important;
+  width:100%!important;display:flex!important;align-items:flex-start!important;justify-content:flex-start!important;
+  margin:0 auto 18px!important;gap:18px!important;
+}
+div[data-testid="stHorizontalBlock"]:has(.header-area-anchor)>div:nth-child(1){display:block!important;flex:0 0 500px!important;min-width:500px!important;max-width:500px!important}
+div[data-testid="stHorizontalBlock"]:has(.header-area-anchor)>div:nth-child(2){display:block!important;flex:1 1 auto!important}
+div[data-testid="stHorizontalBlock"]:has(.header-area-anchor)>div:nth-child(3){display:block!important;flex:0 0 190px!important;min-width:190px!important;max-width:190px!important}
+.header-area-anchor{display:none!important}
+
+/* Botao inativo: branco, borda cinza forte, texto preto em negrito */
+.st-key-area_btn_Armazenagem button,
+.st-key-area_btn_Triagem button,
+.st-key-area_btn_Reversa button{
+  min-height:46px!important;border-radius:14px!important;background:#ffffff!important;border:2px solid #9f9f9f!important;
+  color:#111111!important;box-shadow:0 4px 10px rgba(0,0,0,.10)!important;opacity:1!important;
+}
+.st-key-area_btn_Armazenagem button p,.st-key-area_btn_Armazenagem button span,
+.st-key-area_btn_Triagem button p,.st-key-area_btn_Triagem button span,
+.st-key-area_btn_Reversa button p,.st-key-area_btn_Reversa button span{
+  color:#111111!important;font-weight:900!important;font-size:1rem!important;opacity:1!important;
+}
+/* Botao selecionado usa type primary: vermelho intenso, texto branco e sombra */
+.st-key-area_btn_Armazenagem button[kind="primary"],
+.st-key-area_btn_Triagem button[kind="primary"],
+.st-key-area_btn_Reversa button[kind="primary"]{
+  background:#d71920!important;border-color:#d71920!important;color:#ffffff!important;
+  box-shadow:0 8px 18px rgba(180,20,25,.38)!important;
+}
+.st-key-area_btn_Armazenagem button[kind="primary"] p,.st-key-area_btn_Armazenagem button[kind="primary"] span,
+.st-key-area_btn_Triagem button[kind="primary"] p,.st-key-area_btn_Triagem button[kind="primary"] span,
+.st-key-area_btn_Reversa button[kind="primary"] p,.st-key-area_btn_Reversa button[kind="primary"] span{
+  color:#ffffff!important;font-weight:900!important;opacity:1!important;
+}
+.st-key-area_btn_Armazenagem button:hover,.st-key-area_btn_Triagem button:hover,.st-key-area_btn_Reversa button:hover{
+  border-color:#d71920!important;transform:translateY(-1px);box-shadow:0 7px 15px rgba(180,20,25,.22)!important;
+}
+@media(max-width:900px){
+  div[data-testid="stHorizontalBlock"]:has(.header-area-anchor){display:grid!important;grid-template-columns:1fr!important}
+  div[data-testid="stHorizontalBlock"]:has(.header-area-anchor)>div:nth-child(1){width:min(500px,100%)!important;min-width:0!important;max-width:500px!important;justify-self:start!important}
+  div[data-testid="stHorizontalBlock"]:has(.header-area-anchor)>div:nth-child(2){display:none!important}
+  div[data-testid="stHorizontalBlock"]:has(.header-area-anchor)>div:nth-child(3){width:190px!important;justify-self:end!important}
+}
+@media(max-width:580px){
+  div[data-testid="stHorizontalBlock"]:has(.header-area-anchor)>div:nth-child(1){width:100%!important;max-width:100%!important}
+  div[data-testid="stHorizontalBlock"]:has(.header-area-anchor)>div:nth-child(3){justify-self:end!important}
+  .st-key-area_btn_Armazenagem button p,.st-key-area_btn_Triagem button p,.st-key-area_btn_Reversa button p{font-size:.83rem!important}
 }
 </style>
 <div class="portal-head portal-head-base">
