@@ -1,6 +1,7 @@
 import hashlib
 import hmac
 import json
+import base64
 import os
 import secrets
 import sqlite3
@@ -548,6 +549,20 @@ def exportar_json_compatibilidade():
     return json.dumps({"versao": 28, "usuarios": [dict(x) for x in linhas], "atualizado_em": agora_iso()}, ensure_ascii=False, indent=2)
 
 
+def imagem_data_uri(nome_arquivo):
+    caminho = Path(__file__).resolve().parent / nome_arquivo
+    if not caminho.exists():
+        raise FileNotFoundError(f"Imagem não localizada: {nome_arquivo}")
+    extensao = caminho.suffix.lower().lstrip(".")
+    mime = "image/jpeg" if extensao in {"jpg", "jpeg"} else f"image/{extensao}"
+    conteudo = base64.b64encode(caminho.read_bytes()).decode("ascii")
+    return f"data:{mime};base64,{conteudo}"
+
+
+logo_claro_uri = imagem_data_uri("logo_claro.png")
+logo_logistica_uri = imagem_data_uri("logo_logistica.png")
+
+
 iniciar_banco()
 importar_json_legado()
 
@@ -672,14 +687,14 @@ html,body,.stApp,[data-testid="stAppViewContainer"]{max-width:100%!important;ove
 </style>
 <div class="portal-head portal-head-base">
   <div class="portal-brand">
-    <img class="portal-logo-claro" src="logo_claro.png" alt="Claro">
+    <img class="portal-logo-claro" src="app/static/logo_claro.png" alt="Claro">
     <span class="portal-sep"></span>
     <div class="portal-title">Central de Inteligência Operacional</div>
     <span class="portal-sep"></span>
-    <img class="portal-logo-logistica" src="logo_logistica.png" alt="Logística">
+    <img class="portal-logo-logistica" src="app/static/logo_logistica.png" alt="Logística">
   </div>
 </div>
-""", unsafe_allow_html=True)
+""".replace("__LOGO_CLARO__", logo_claro_uri).replace("__LOGO_LOGISTICA__", logo_logistica_uri), unsafe_allow_html=True)
 
 if "modo" not in st.session_state:
     st.session_state.modo = "Entrar"
