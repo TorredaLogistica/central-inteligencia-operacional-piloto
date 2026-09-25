@@ -66,9 +66,9 @@ def data_hora_brasilia(valor):
 
 def normalizar_usuario(valor: str) -> str:
     import unicodedata
-    valor = unicodedata.normalize("NFD", valor or "")
+    valor = unicodedata.normalize("NFD", str(valor or "").strip())
     valor = "".join(c for c in valor if unicodedata.category(c) != "Mn")
-    return "".join(c for c in valor.upper() if "A" <= c <= "Z")
+    return "".join(c for c in valor.upper() if ("A" <= c <= "Z") or ("0" <= c <= "9"))
 
 
 def normalizar_email(valor: str) -> str:
@@ -309,6 +309,57 @@ def listar_usuarios():
             """SELECT id,nome_completo,usuario,email,ativo,perfil,criado_em,aprovado_em,atualizado_em
                FROM usuarios ORDER BY COALESCE(nome_completo,usuario,email,nome_hash)"""
         ).fetchall()]
+
+
+def editar_cadastro_usuario(usuario_id, nome_completo, usuario, email, administrador):
+    nome_completo = str(nome_completo or "").strip()
+    usuario = normalizar_usuario(usuario)
+    email = normalizar_email(email)
+    if not nome_completo:
+        raise ValueError("Informe o nome completo.")
+    if not usuario:
+        raise ValueError("Informe um nome de usuário válido.")
+    if not email.endswith("@claro.com.br"):
+        raise ValueError("Informe um e-mail corporativo válido.")
+
+    novo_nome_hash = sha256(usuario.lower())
+    novo_email_hash = sha256(email)
+    with conectar() as con:
+        atual = con.execute(
+            "SELECT id,nome_completo,usuario,email,nome_hash,email_hash FROM usuarios WHERE id=?",
+            (usuario_id,),
+        ).fetchone()
+        if not atual:
+            raise ValueError("Cadastro não localizado.")
+
+        duplicado = con.execute(
+            """SELECT id FROM usuarios
+               WHERE id<>? AND (nome_hash=? OR email_hash=?)""",
+            (usuario_id, novo_nome_hash, novo_email_hash),
+        ).fetchone()
+        if duplicado:
+            raise ValueError("O usuário ou o e-mail informado já pertence a outro cadastro.")
+
+        referencia = json.dumps({
+            "usuario_id": usuario_id,
+            "nome_anterior": atual["nome_completo"],
+            "usuario_anterior": atual["usuario"],
+            "email_anterior": atual["email"],
+            "nome_novo": nome_completo,
+            "usuario_novo": usuario,
+            "email_novo": email,
+        }, ensure_ascii=False)
+        con.execute(
+            """UPDATE usuarios
+               SET nome_completo=?,usuario=?,email=?,nome_hash=?,email_hash=?,atualizado_em=?
+               WHERE id=?""",
+            (nome_completo, usuario, email, novo_nome_hash, novo_email_hash, agora_iso(), usuario_id),
+        )
+        con.execute(
+            "INSERT INTO auditoria(acao,referencia,administrador,criado_em) VALUES(?,?,?,?)",
+            ("EDITAR_CADASTRO_USUARIO", referencia, administrador, agora_iso()),
+        )
+    return True
 
 
 def alterar_status_usuario(usuario_id, ativo, administrador):
@@ -666,6 +717,51 @@ if st.session_state.admin_logado:
                     st.write(f"**Criado em:** {data_hora_brasilia(usuario_item['criado_em'])}")
                     st.write(f"**Aprovado em:** {data_hora_brasilia(usuario_item['aprovado_em'])}")
                     st.write(f"**Atualizado em:** {data_hora_brasilia(usuario_item['atualizado_em'])}")
+
+                with st.expander("Editar cadastro", expanded=False):
+                    st.caption(
+                        "A alteração do usuário ou do e-mail atualizará os hashes utilizados no próximo login. "
+                        "A senha atual será preservada."
+                    )
+                    with st.form(f"editar_usuario_{usuario_item['id']}"):
+                        nome_editado = st.text_input(
+                            "Nome completo",
+                            value=usuario_item["nome_completo"] or "",
+                            key=f"editar_nome_{usuario_item['id']}",
+                        )
+                        usuario_editado = st.text_input(
+                            "Nome de usuário",
+                            value=usuario_item["usuario"] or "",
+                            key=f"editar_login_{usuario_item['id']}",
+                        )
+                        email_editado = st.text_input(
+                            "E-mail corporativo",
+                            value=usuario_item["email"] or "",
+                            key=f"editar_email_{usuario_item['id']}",
+                        )
+                        confirmar_edicao = st.checkbox(
+                            "Confirmo a atualização dos dados de acesso.",
+                            key=f"confirmar_edicao_{usuario_item['id']}",
+                        )
+                        salvar_edicao = st.form_submit_button(
+                            "Salvar alterações",
+                            type="primary",
+                            use_container_width=True,
+                            disabled=not confirmar_edicao,
+                        )
+                    if salvar_edicao:
+                        try:
+                            editar_cadastro_usuario(
+                                usuario_item["id"],
+                                nome_editado,
+                                usuario_editado,
+                                email_editado,
+                                st.session_state.admin_logado,
+                            )
+                            st.success("Cadastro atualizado. O próximo login deverá usar os dados informados.")
+                            st.rerun()
+                        except ValueError as exc:
+                            st.error(str(exc))
 
                 acao1, acao2 = st.columns(2)
                 if usuario_item["ativo"]:
