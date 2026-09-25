@@ -334,6 +334,97 @@ def excluir_usuario(usuario_id, administrador):
     return True
 
 
+def importar_usuarios_json_manual(arquivo, administrador):
+    try:
+        dados = json.loads(arquivo.getvalue().decode("utf-8-sig"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ValueError("O arquivo selecionado não contém um JSON válido.") from exc
+
+    usuarios = dados.get("usuarios") if isinstance(dados, dict) else None
+    if not isinstance(usuarios, list):
+        raise ValueError("O JSON precisa conter a chave 'usuarios' no formato de lista.")
+
+    obrigatorios = {"nome_hash", "email_hash", "senha_hash", "salt"}
+    analisados = len(usuarios)
+    incluidos = 0
+    atualizados = 0
+    ignorados = 0
+    erros = []
+
+    with conectar() as con:
+        for indice, item in enumerate(usuarios, start=1):
+            if not isinstance(item, dict):
+                ignorados += 1
+                erros.append(f"Registro {indice}: estrutura inválida.")
+                continue
+            ausentes = sorted(campo for campo in obrigatorios if not item.get(campo))
+            if ausentes:
+                ignorados += 1
+                erros.append(f"Registro {indice}: campos ausentes: {', '.join(ausentes)}.")
+                continue
+            try:
+                int(item.get("iteracoes", ITERACOES))
+                bytes.fromhex(str(item["salt"]))
+            except (TypeError, ValueError):
+                ignorados += 1
+                erros.append(f"Registro {indice}: salt ou iterações inválidos.")
+                continue
+
+            existente = con.execute(
+                "SELECT id FROM usuarios WHERE nome_hash=? OR email_hash=?",
+                (item["nome_hash"], item["email_hash"]),
+            ).fetchone()
+            agora = agora_iso()
+            aprovado_em = item.get("aprovado_em") or agora
+            valores = (
+                item["nome_hash"],
+                item["email_hash"],
+                item["senha_hash"],
+                item["salt"],
+                int(item.get("iteracoes", ITERACOES)),
+                item.get("codigo_dispositivo_hash"),
+                1 if item.get("ativo", True) else 0,
+                aprovado_em,
+                agora,
+            )
+            if existente:
+                con.execute(
+                    """UPDATE usuarios
+                       SET nome_hash=?,email_hash=?,senha_hash=?,salt=?,iteracoes=?,
+                           codigo_dispositivo_hash=?,ativo=?,aprovado_em=?,atualizado_em=?
+                       WHERE id=?""",
+                    valores + (existente["id"],),
+                )
+                atualizados += 1
+            else:
+                con.execute(
+                    """INSERT INTO usuarios
+                       (nome_hash,email_hash,senha_hash,salt,iteracoes,codigo_dispositivo_hash,
+                        ativo,perfil,criado_em,aprovado_em,atualizado_em)
+                       VALUES(?,?,?,?,?,?,?,'USUARIO',?,?,?)""",
+                    valores[:7] + (aprovado_em, aprovado_em, agora),
+                )
+                incluidos += 1
+
+        con.execute(
+            "INSERT INTO auditoria(acao,referencia,administrador,criado_em) VALUES(?,?,?,?)",
+            (
+                "IMPORTAR_USUARIOS_JSON",
+                f"analisados={analisados};incluidos={incluidos};atualizados={atualizados};ignorados={ignorados}",
+                administrador,
+                agora_iso(),
+            ),
+        )
+
+    return {
+        "analisados": analisados,
+        "incluidos": incluidos,
+        "atualizados": atualizados,
+        "ignorados": ignorados,
+        "erros": erros,
+    }
+
+
 def exportar_json_compatibilidade():
     with conectar() as con:
         linhas = con.execute("SELECT nome_hash,email_hash,senha_hash,salt,iteracoes,codigo_dispositivo_hash,ativo,aprovado_em FROM usuarios").fetchall()
@@ -464,9 +555,10 @@ if st.session_state.admin_logado:
     st.caption("Datas e horários apresentados no fuso de Brasília (America/Sao_Paulo).")
     st.write("")
 
-    aba_pendencias, aba_usuarios = st.tabs([
+    aba_pendencias, aba_usuarios, aba_importacao = st.tabs([
         f"Solicitações pendentes ({len(pendentes)})",
         f"Usuários cadastrados ({len(usuarios_admin)})",
+        "Importar usuários",
     ])
 
     with aba_pendencias:
@@ -523,6 +615,44 @@ if st.session_state.admin_logado:
                 if acao2.button("Excluir definitivamente", key=f"excluir_{usuario_item['id']}", disabled=not confirmar_exclusao, use_container_width=True):
                     excluir_usuario(usuario_item["id"], st.session_state.admin_logado)
                     st.rerun()
+
+    with aba_importacao:
+        st.subheader("Importar usuários do JSON legado")
+        st.info(
+            "A importação inclui usuários novos e atualiza cadastros já existentes pelo hash do usuário ou do e-mail. "
+            "Os demais usuários do banco serão preservados."
+        )
+        arquivo_json = st.file_uploader(
+            "Selecione o usuarios.json antigo",
+            type=["json"],
+            accept_multiple_files=False,
+            key="importar_usuarios_json",
+        )
+        confirmar_importacao = st.checkbox(
+            "Confirmo que este arquivo contém usuários autorizados para este portal.",
+            key="confirmar_importacao_json",
+        )
+        if st.button(
+            "Importar usuários",
+            type="primary",
+            use_container_width=True,
+            disabled=arquivo_json is None or not confirmar_importacao,
+            key="btn_importar_usuarios_json",
+        ):
+            try:
+                resultado = importar_usuarios_json_manual(arquivo_json, st.session_state.admin_logado)
+                st.success(
+                    f"Importação concluída. Analisados: {resultado['analisados']} | "
+                    f"Incluídos: {resultado['incluidos']} | Atualizados: {resultado['atualizados']} | "
+                    f"Ignorados: {resultado['ignorados']}."
+                )
+                if resultado["erros"]:
+                    with st.expander("Registros ignorados"):
+                        for erro in resultado["erros"]:
+                            st.write(f"- {erro}")
+                st.session_state["resultado_ultima_importacao"] = resultado
+            except ValueError as exc:
+                st.error(str(exc))
 
     st.download_button("Exportar usuarios.json compatível", exportar_json_compatibilidade(), "usuarios.json", "application/json")
     if st.button("Sair da administração"):
