@@ -20,20 +20,20 @@ FUSO_BRASILIA = ZoneInfo("America/Sao_Paulo")
 # Os títulos foram mantidos alinhados à Central HTML atual.
 INDICADORES = {
     "Armazenagem": [
-        {"titulo": "Chatbot Torre Logística", "url": "https://chatbot-logistica-e4cpfbcta3qyqchopsdjeg.streamlit.app/"},
-        {"titulo": "Separação e Faturamento", "url": "https://dashboard-slaseparacaofaturamento-mdnfzinkaebwzysne83ewp.streamlit.app/"},
-        {"titulo": "Pedidos para LPs", "url": "https://pedidoslpsaas-y44bkbmcg4kon8fogbro34.streamlit.app/"},
-        {"titulo": "Resultado do DRE", "url": "https://resultadodre-lk6rh4ahefeuwfhwrg2ioc.streamlit.app/"},
-        {"titulo": "Valores dos EAs", "url": "https://valorestoques-eas-73bxfsks3rnoxjo44fuqm7.streamlit.app/"},
-        {"titulo": "Atendimento de OVs nos TLs", "url": "https://atendimento-de-ovs-nos-tls-in3rykeacnvjxedhb7r9zc.streamlit.app/"},
-        {"titulo": "Taxa de Ocupação dos CDs", "url": "https://taxadeocupacaodoscds-tfx8ftu78n46vhvn5dxc7k.streamlit.app/"},
-        {"titulo": "Pedidos Canal Vermelho", "url": "CANAL_VERMELHO"},
-        {"titulo": "Pedidos LPs e AAs NFs não Agrupadas", "url": "https://nfs-nao-agrupadas-juqvjn8nhbzuhzzdfwknbl.streamlit.app/"},
-        {"titulo": "Faturas dos OPLs", "url": "https://faturasdosopls-fdgzskwvbciwkgubekfjcz.streamlit.app/"},
-        {"titulo": "Recebimento de Usados", "url": "https://controlederecebimentodeusados-ucfnrvqwuceiet5q7tt4wn.streamlit.app/"},
-        {"titulo": "Nível de Serviços dos OPLs", "url": "https://niveldeservicoopls-sgrryyugyheukmxp2xtzp8.streamlit.app/"},
-        {"titulo": "Forecast e Realizado", "url": "https://forecasterealizado-kebvdtavq5yc8s9kwrfqiu.streamlit.app/"},
-        {"titulo": "Simulação de Pedidos", "url": "https://simulacaopedidos-myjtjrm3nklxzprutjpbd5.streamlit.app/"},
+        {"titulo": "Chatbot Torre Logística", "url": "https://chatbot-logistica-e4cpfbcta3qyqchopsdjeg.streamlit.app/", "icone": "🤖"},
+        {"titulo": "Separação e Faturamento", "url": "https://dashboard-slaseparacaofaturamento-mdnfzinkaebwzysne83ewp.streamlit.app/", "icone": "📊"},
+        {"titulo": "Pedidos para LPs", "url": "https://pedidoslpsaas-y44bkbmcg4kon8fogbro34.streamlit.app/", "icone": "📦"},
+        {"titulo": "Resultado do DRE", "url": "https://resultadodre-lk6rh4ahefeuwfhwrg2ioc.streamlit.app/", "icone": "💰"},
+        {"titulo": "Valores dos EAs", "url": "https://valorestoques-eas-73bxfsks3rnoxjo44fuqm7.streamlit.app/", "icone": "📈"},
+        {"titulo": "Atendimento de OVs nos TLs", "url": "https://atendimento-de-ovs-nos-tls-in3rykeacnvjxedhb7r9zc.streamlit.app/", "icone": "📋"},
+        {"titulo": "Taxa de Ocupação dos CDs", "url": "https://taxadeocupacaodoscds-tfx8ftu78n46vhvn5dxc7k.streamlit.app/", "icone": "🏭"},
+        {"titulo": "Pedidos Canal Vermelho", "url": "CANAL_VERMELHO", "icone": "⚡"},
+        {"titulo": "Pedidos LPs e AAs NFs não Agrupadas", "url": "https://nfs-nao-agrupadas-juqvjn8nhbzuhzzdfwknbl.streamlit.app/", "icone": "🧾"},
+        {"titulo": "Faturas dos OPLs", "url": "https://faturasdosopls-fdgzskwvbciwkgubekfjcz.streamlit.app/", "icone": "💵"},
+        {"titulo": "Recebimento de Usados", "url": "https://controlederecebimentodeusados-ucfnrvqwuceiet5q7tt4wn.streamlit.app/", "icone": "♻️"},
+        {"titulo": "Nível de Serviços dos OPLs", "url": "https://niveldeservicoopls-sgrryyugyheukmxp2xtzp8.streamlit.app/", "icone": "🚚"},
+        {"titulo": "Forecast e Realizado", "url": "https://forecasterealizado-kebvdtavq5yc8s9kwrfqiu.streamlit.app/", "icone": "🔢"},
+        {"titulo": "Simulação de Pedidos", "url": "https://simulacaopedidos-myjtjrm3nklxzprutjpbd5.streamlit.app/", "icone": "🧮"},
     ],
     "Triagem": [],
     "Reversa": [],
@@ -141,10 +141,10 @@ def exibir_central_indicadores():
             with coluna:
                 destino = gerar_url_canal_vermelho() if indicador["url"] == "CANAL_VERMELHO" else indicador["url"]
                 titulo = indicador["titulo"]
-                iniciais = "".join(parte[0] for parte in titulo.split()[:2]).upper()
+                icone = indicador["icone"]
                 card_html = f"""<a class="indicador-card-link" href="{destino}" target="_blank" rel="noopener noreferrer">
                     <span class="indicador-card-acento"></span>
-                    <span class="indicador-card-simbolo">{iniciais}</span>
+                    <span class="indicador-card-simbolo" aria-hidden="true">{icone}</span>
                     <span class="indicador-card-titulo">{titulo}</span>
                 </a>"""
                 st.markdown(card_html, unsafe_allow_html=True)
@@ -344,14 +344,15 @@ st.markdown("""
 <style>
 .stApp{background:#eef0f3}.claro-head{padding:18px 24px;border-radius:0 0 18px 18px;background:linear-gradient(180deg,#b51f25,#f47b45);color:white;margin:-1rem -1rem 1.5rem}.claro-head h1{margin:0;font-size:1.65rem}.claro-head p{margin:.35rem 0 0;opacity:.9}.indicador-card{min-height:210px}.pendencia{padding:.8rem 1rem;border-radius:12px;background:#fff3cd;border:1px solid #ffec99;color:#7a5200;font-weight:700}
 
-/* Cards inovadores dos indicadores */
-.indicador-card-link{position:relative;display:flex;min-height:168px;padding:24px 20px 19px;border:1px solid rgba(218,41,28,.14);border-radius:22px;overflow:hidden;background:linear-gradient(145deg,rgba(255,255,255,.98),rgba(255,245,242,.96));box-shadow:0 10px 28px rgba(79,20,20,.10);text-decoration:none!important;color:#292929!important;flex-direction:column;align-items:flex-start;justify-content:space-between;transition:transform .22s ease,box-shadow .22s ease,border-color .22s ease}
-.indicador-card-link:before{content:"";position:absolute;width:125px;height:125px;right:-55px;top:-58px;border-radius:50%;background:radial-gradient(circle,rgba(244,123,69,.28),rgba(218,41,28,.08) 55%,transparent 70%)}
+/* Modelo 1: cards modernos com ícones */
+.indicador-card-link{position:relative;display:flex;min-height:182px;padding:26px 18px 22px;border:1px solid rgba(218,41,28,.14);border-radius:22px;overflow:hidden;background:linear-gradient(145deg,rgba(255,255,255,.99),rgba(255,246,243,.97));box-shadow:0 10px 28px rgba(79,20,20,.10);text-decoration:none!important;color:#292929!important;flex-direction:column;align-items:center;justify-content:center;transition:transform .22s ease,box-shadow .22s ease,border-color .22s ease}
+.indicador-card-link:before{content:"";position:absolute;width:140px;height:140px;right:-66px;top:-66px;border-radius:50%;background:radial-gradient(circle,rgba(244,123,69,.27),rgba(218,41,28,.07) 55%,transparent 71%)}
 .indicador-card-link:hover{transform:translateY(-6px);box-shadow:0 18px 38px rgba(122,25,25,.18);border-color:rgba(218,41,28,.36)}
 .indicador-card-acento{position:absolute;left:0;top:0;width:100%;height:5px;background:linear-gradient(90deg,#b51f25,#da291c 50%,#f47b45)}
-.indicador-card-simbolo{display:flex;align-items:center;justify-content:center;width:48px;height:48px;border-radius:15px;background:linear-gradient(145deg,#ed3025,#b51f25);color:#fff;font-size:.85rem;font-weight:900;letter-spacing:.3px;box-shadow:0 8px 18px rgba(181,31,37,.24);z-index:1}
-.indicador-card-titulo{display:flex;align-items:center;min-height:52px;margin:14px 0 11px;font-size:1rem;font-weight:850;line-height:1.25;z-index:1}
-@media(max-width:900px){.indicador-card-link{min-height:150px;padding:20px 16px 16px}.indicador-card-titulo{font-size:.92rem}.indicador-card-simbolo{width:42px;height:42px;border-radius:13px}}
+.indicador-card-simbolo{display:flex;align-items:center;justify-content:center;width:64px;height:64px;border-radius:20px;background:linear-gradient(145deg,#ed3025,#b51f25);color:#fff;font-size:30px;line-height:1;box-shadow:0 9px 20px rgba(181,31,37,.25);z-index:1;transition:transform .22s ease}
+.indicador-card-link:hover .indicador-card-simbolo{transform:scale(1.06)}
+.indicador-card-titulo{display:flex;align-items:center;justify-content:center;text-align:center;min-height:54px;margin:16px 0 0;font-size:1rem;font-weight:850;line-height:1.25;z-index:1}
+@media(max-width:900px){.indicador-card-link{min-height:158px;padding:21px 14px 18px}.indicador-card-titulo{font-size:.92rem}.indicador-card-simbolo{width:54px;height:54px;border-radius:17px;font-size:26px}}
 </style><div class="claro-head"><h1>Claro | Central de Inteligência Operacional</h1><p>Cadastro, aprovação e recuperação de acesso</p></div>
 """, unsafe_allow_html=True)
 
