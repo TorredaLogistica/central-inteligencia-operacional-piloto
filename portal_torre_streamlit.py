@@ -10,6 +10,7 @@ from zoneinfo import ZoneInfo
 from pathlib import Path
 
 import streamlit as st
+import pandas as pd
 
 DB_PATH = Path(os.getenv("TORRE_DB_PATH", "torre_usuarios.db"))
 USUARIOS_JSON = Path(os.getenv("TORRE_USUARIOS_JSON", "usuarios.json"))
@@ -425,6 +426,64 @@ def importar_usuarios_json_manual(arquivo, administrador):
     }
 
 
+def complementar_cadastros_xlsx(arquivo, administrador):
+    try:
+        planilha = pd.read_excel(arquivo, sheet_name="Usuarios", engine="openpyxl", dtype=str)
+    except ValueError as exc:
+        raise ValueError("A planilha precisa conter uma guia chamada 'Usuarios'.") from exc
+    except Exception as exc:
+        raise ValueError("Não foi possível ler o arquivo XLSX selecionado.") from exc
+
+    planilha.columns = [str(coluna).strip().lower() for coluna in planilha.columns]
+    obrigatorias = ["nome_completo", "usuario", "email"]
+    ausentes = [coluna for coluna in obrigatorias if coluna not in planilha.columns]
+    if ausentes:
+        raise ValueError("Colunas obrigatórias ausentes: " + ", ".join(ausentes) + ".")
+
+    planilha = planilha[obrigatorias].fillna("")
+    analisados = len(planilha)
+    complementados = ja_completos = nao_localizados = ignorados = 0
+    erros = []
+    with conectar() as con:
+        for numero_linha, linha in enumerate(planilha.itertuples(index=False), start=2):
+            nome_completo = str(linha.nome_completo).strip()
+            usuario = normalizar_usuario(str(linha.usuario))
+            email = normalizar_email(str(linha.email))
+            if not nome_completo or not usuario or not email:
+                ignorados += 1
+                erros.append(f"Linha {numero_linha}: nome, usuário ou e-mail não preenchido.")
+                continue
+            if not email.endswith("@claro.com.br"):
+                ignorados += 1
+                erros.append(f"Linha {numero_linha}: e-mail corporativo inválido.")
+                continue
+            cadastro = con.execute(
+                "SELECT id,nome_completo,usuario,email FROM usuarios WHERE nome_hash=? AND email_hash=?",
+                (sha256(usuario.lower()), sha256(email)),
+            ).fetchone()
+            if not cadastro:
+                nao_localizados += 1
+                erros.append(f"Linha {numero_linha}: cadastro legado não localizado pelos dados informados.")
+                continue
+            if cadastro["nome_completo"] and cadastro["usuario"] and cadastro["email"]:
+                ja_completos += 1
+                continue
+            con.execute(
+                "UPDATE usuarios SET nome_completo=?,usuario=?,email=?,atualizado_em=? WHERE id=?",
+                (nome_completo, usuario, email, agora_iso(), cadastro["id"]),
+            )
+            complementados += 1
+        con.execute(
+            "INSERT INTO auditoria(acao,referencia,administrador,criado_em) VALUES(?,?,?,?)",
+            ("COMPLEMENTAR_CADASTROS_XLSX",
+             f"analisados={analisados};complementados={complementados};ja_completos={ja_completos};nao_localizados={nao_localizados};ignorados={ignorados}",
+             administrador, agora_iso()),
+        )
+    return {"analisados": analisados, "complementados": complementados,
+            "ja_completos": ja_completos, "nao_localizados": nao_localizados,
+            "ignorados": ignorados, "erros": erros}
+
+
 def exportar_json_compatibilidade():
     with conectar() as con:
         linhas = con.execute("SELECT nome_hash,email_hash,senha_hash,salt,iteracoes,codigo_dispositivo_hash,ativo,aprovado_em FROM usuarios").fetchall()
@@ -654,6 +713,41 @@ if st.session_state.admin_logado:
             except ValueError as exc:
                 st.error(str(exc))
 
+        st.divider()
+        st.subheader("Completar nomes dos cadastros legados em lote")
+        st.info(
+            "Envie uma planilha XLSX com a guia 'Usuarios' e as colunas nome_completo, usuario e email. "
+            "A atualização ocorre somente quando usuário e e-mail correspondem ao cadastro legado."
+        )
+        arquivo_xlsx = st.file_uploader(
+            "Selecione a Relação Usuários da Central.xlsx",
+            type=["xlsx"], accept_multiple_files=False, key="complementar_usuarios_xlsx",
+        )
+        confirmar_xlsx = st.checkbox(
+            "Confirmo que os dados correspondem aos usuários já importados.",
+            key="confirmar_complementacao_xlsx",
+        )
+        if st.button(
+            "Completar cadastros legados", type="primary", use_container_width=True,
+            disabled=arquivo_xlsx is None or not confirmar_xlsx,
+            key="btn_complementar_usuarios_xlsx",
+        ):
+            try:
+                resultado_xlsx = complementar_cadastros_xlsx(arquivo_xlsx, st.session_state.admin_logado)
+                st.success(
+                    f"Complementação concluída. Analisados: {resultado_xlsx['analisados']} | "
+                    f"Complementados: {resultado_xlsx['complementados']} | "
+                    f"Já completos: {resultado_xlsx['ja_completos']} | "
+                    f"Não localizados: {resultado_xlsx['nao_localizados']} | "
+                    f"Ignorados: {resultado_xlsx['ignorados']}."
+                )
+                if resultado_xlsx["erros"]:
+                    with st.expander("Linhas não atualizadas"):
+                        for erro in resultado_xlsx["erros"]:
+                            st.write(f"- {erro}")
+            except ValueError as exc:
+                st.error(str(exc))
+
     st.download_button("Exportar usuarios.json compatível", exportar_json_compatibilidade(), "usuarios.json", "application/json")
     if st.button("Sair da administração"):
         st.session_state.admin_logado = None
@@ -665,12 +759,12 @@ if st.session_state.usuario_logado:
     st.stop()
 
 opcoes = ["Entrar", "Solicitar cadastro", "Esqueci minha senha", "Administrador"]
-st.session_state.modo = st.segmented_control(
+st.segmented_control(
     "Acesso",
     opcoes,
-    default=st.session_state.modo,
+    key="modo",
     label_visibility="collapsed",
-) or "Entrar"
+)
 
 if st.session_state.modo == "Entrar":
     st.subheader("Acesso à Central")
