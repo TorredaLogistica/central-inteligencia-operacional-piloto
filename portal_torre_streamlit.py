@@ -15,6 +15,20 @@ USUARIOS_JSON = Path(os.getenv("TORRE_USUARIOS_JSON", "usuarios.json"))
 ITERACOES = 600_000
 FUSO_BRASILIA = ZoneInfo("America/Sao_Paulo")
 
+# Catálogo dos indicadores. Para disponibilizar um indicador, preencha a URL.
+# Os títulos foram mantidos alinhados à Central HTML atual.
+INDICADORES = {
+    "Armazenagem": [
+        {"titulo": "Canal Vermelho", "descricao": "Acompanhamento operacional e OTIF.", "url": "https://cuencjwy3ahhnzymzsspuc.streamlit.app/", "icone": "🔴"},
+        {"titulo": "Separação e Faturamento", "descricao": "Indicadores de separação, faturamento e expedição.", "url": "", "icone": "📦"},
+        {"titulo": "Indicador iPhone", "descricao": "Recebimentos, pedidos, faturamento e expedição.", "url": "", "icone": "📱"},
+        {"titulo": "Validador de Faturas", "descricao": "Acompanhamento e validação do fluxo de faturas.", "url": "", "icone": "🧾"},
+    ],
+    "Triagem": [],
+    "Reversa": [],
+}
+
+
 st.set_page_config(page_title="Claro | Central de Inteligência Operacional", page_icon="🔴", layout="wide")
 
 
@@ -65,6 +79,49 @@ def conectar():
     con = sqlite3.connect(DB_PATH)
     con.row_factory = sqlite3.Row
     return con
+
+
+def exibir_central_indicadores():
+    usuario_atual = st.session_state.usuario_logado or {}
+    nome = usuario_atual.get("nome_completo") or usuario_atual.get("usuario") or "Usuário"
+
+    topo1, topo2 = st.columns([5, 1])
+    with topo1:
+        st.success(f"Acesso aprovado. Bem-vindo(a), {nome}.")
+    with topo2:
+        if st.button("Sair", use_container_width=True):
+            st.session_state.usuario_logado = None
+            st.rerun()
+
+    st.subheader("Indicadores")
+    areas = list(INDICADORES.keys())
+    area = st.segmented_control("Área operacional", areas, default="Armazenagem", key="area_indicadores") or "Armazenagem"
+    indicadores = INDICADORES.get(area, [])
+
+    if not indicadores:
+        st.info(f"Nenhum indicador disponível para a área de {area} no momento.")
+        return
+
+    colunas = st.columns(3)
+    for indice, indicador in enumerate(indicadores):
+        with colunas[indice % 3]:
+            with st.container(border=True):
+                st.markdown(f"### {indicador['icone']} {indicador['titulo']}")
+                st.write(indicador["descricao"])
+                if indicador["url"]:
+                    st.link_button(
+                        "Acessar indicador",
+                        indicador["url"],
+                        type="primary",
+                        use_container_width=True,
+                    )
+                else:
+                    st.button(
+                        "URL ainda não configurada",
+                        key=f"indisponivel_{area}_{indice}",
+                        disabled=True,
+                        use_container_width=True,
+                    )
 
 
 def iniciar_banco():
@@ -259,7 +316,7 @@ importar_json_legado()
 
 st.markdown("""
 <style>
-.stApp{background:#eef0f3}.claro-head{padding:18px 24px;border-radius:0 0 18px 18px;background:linear-gradient(180deg,#b51f25,#f47b45);color:white;margin:-1rem -1rem 1.5rem}.claro-head h1{margin:0;font-size:1.65rem}.claro-head p{margin:.35rem 0 0;opacity:.9}.pendencia{padding:.8rem 1rem;border-radius:12px;background:#fff3cd;border:1px solid #ffec99;color:#7a5200;font-weight:700}
+.stApp{background:#eef0f3}.claro-head{padding:18px 24px;border-radius:0 0 18px 18px;background:linear-gradient(180deg,#b51f25,#f47b45);color:white;margin:-1rem -1rem 1.5rem}.claro-head h1{margin:0;font-size:1.65rem}.claro-head p{margin:.35rem 0 0;opacity:.9}.indicador-card{min-height:210px}.pendencia{padding:.8rem 1rem;border-radius:12px;background:#fff3cd;border:1px solid #ffec99;color:#7a5200;font-weight:700}
 </style><div class="claro-head"><h1>Claro | Central de Inteligência Operacional</h1><p>Cadastro, aprovação e recuperação de acesso</p></div>
 """, unsafe_allow_html=True)
 
@@ -347,11 +404,7 @@ if st.session_state.admin_logado:
     st.stop()
 
 if st.session_state.usuario_logado:
-    st.success("Acesso aprovado e autenticação concluída.")
-    st.write("A área dos indicadores pode ser incorporada neste ponto ou permanecer no portal HTML durante a migração.")
-    if st.button("Sair"):
-        st.session_state.usuario_logado = None
-        st.rerun()
+    exibir_central_indicadores()
     st.stop()
 
 opcoes = ["Entrar", "Solicitar cadastro", "Esqueci minha senha", "Administrador"]
