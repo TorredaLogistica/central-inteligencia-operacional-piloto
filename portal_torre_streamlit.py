@@ -642,6 +642,100 @@ body:not(:has(.menu-model-anchor)) .portal-brand{min-height:88px!important;paddi
  div[data-testid="stHorizontalBlock"]:has(.menu-model-anchor) [data-testid="stSegmentedControl"] button *,
  div[data-testid="stHorizontalBlock"]:has(.menu-model-anchor) [data-testid="stSegmentedControl"] label *{font-size:.78rem!important}
 }
+
+/* RESPONSIVIDADE FINAL PARA TABLET E MOBILE */
+html,body,[data-testid="stAppViewContainer"],.stApp{max-width:100%!important;overflow-x:hidden!important}
+[data-testid="stAppViewContainer"]>.main{overflow-x:hidden!important}
+.block-container{width:100%!important;max-width:1900px!important;padding-left:clamp(.75rem,2.2vw,1.25rem)!important;padding-right:clamp(.75rem,2.2vw,1.25rem)!important}
+.portal-head{width:auto!important;box-sizing:border-box!important;overflow:hidden!important}
+.portal-brand{width:100%!important;max-width:100%!important;box-sizing:border-box!important}
+.portal-title{max-width:min(62vw,760px)!important;overflow-wrap:normal!important;word-break:normal!important;hyphens:none!important}
+
+/* Controle principal de acesso */
+[data-testid="stSegmentedControl"]{max-width:100%!important;overflow:visible!important}
+[data-testid="stSegmentedControl"]>div{max-width:100%!important}
+[data-testid="stSegmentedControl"] button,[data-testid="stSegmentedControl"] label{box-sizing:border-box!important}
+[data-testid="stSegmentedControl"] button *,[data-testid="stSegmentedControl"] label *{word-break:normal!important;overflow-wrap:normal!important}
+
+/* Componentes administrativos e formulários */
+[data-testid="stForm"],[data-testid="stExpander"],[data-testid="stFileUploader"],[data-testid="stTabs"]{max-width:100%!important;box-sizing:border-box!important}
+[data-testid="stTabs"] [data-baseweb="tab-list"]{overflow-x:auto!important;overflow-y:hidden!important;scrollbar-width:thin!important}
+[data-testid="stTabs"] [data-baseweb="tab"]{white-space:nowrap!important;flex:0 0 auto!important}
+[data-testid="stFileUploaderDropzone"]{padding:1rem!important}
+[data-testid="stFileUploaderDropzone"] *{max-width:100%!important;white-space:normal!important;overflow-wrap:anywhere!important}
+
+@media (max-width:900px){
+  .block-container{padding-top:2.55rem!important;padding-left:1rem!important;padding-right:1rem!important}
+  .portal-head{min-height:0!important;margin:0 0 16px!important;padding:16px 18px!important;border-radius:0 0 20px 20px!important}
+  .portal-brand{display:grid!important;grid-template-columns:minmax(62px,82px) 1px minmax(0,1fr) 1px minmax(96px,125px)!important;align-items:center!important;justify-content:center!important;gap:12px!important;min-height:82px!important;flex-wrap:nowrap!important}
+  .portal-logo-claro{width:72px!important;height:72px!important;max-width:100%!important}
+  .portal-logo-logistica{width:118px!important;height:58px!important;max-width:100%!important}
+  .portal-sep{display:block!important;width:1px!important;height:44px!important}
+  .portal-title{display:block!important;width:100%!important;max-width:100%!important;min-width:0!important;font-size:clamp(1.15rem,3.3vw,1.55rem)!important;line-height:1.15!important;letter-spacing:-.25px!important;text-align:center!important;white-space:normal!important;word-break:keep-all!important;overflow-wrap:normal!important}
+
+  /* Áreas e usuário abaixo da barra */
+  div[data-testid="stHorizontalBlock"]:has(.menu-model-anchor){display:grid!important;grid-template-columns:minmax(0,1fr) 178px!important;gap:12px!important;align-items:start!important;width:100%!important}
+  div[data-testid="stHorizontalBlock"]:has(.menu-model-anchor)>div:nth-child(1){grid-column:1!important;width:100%!important;min-width:0!important}
+  div[data-testid="stHorizontalBlock"]:has(.menu-model-anchor)>div:nth-child(2){display:none!important}
+  div[data-testid="stHorizontalBlock"]:has(.menu-model-anchor)>div:nth-child(3){grid-column:2!important;width:178px!important;min-width:0!important;max-width:178px!important;justify-self:end!important}
+
+  /* Cards: duas colunas no tablet */
+  div[data-testid="stHorizontalBlock"]:has(.indicador-card-link){display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:14px!important;width:100%!important}
+  div[data-testid="stHorizontalBlock"]:has(.indicador-card-link)>div{width:100%!important;min-width:0!important;max-width:none!important;flex:none!important}
+  .indicador-card-link{min-height:150px!important;padding:20px 14px 17px!important}
+
+  /* Colunas administrativas empilham sem truncar */
+  [data-testid="stExpander"] div[data-testid="stHorizontalBlock"]{flex-wrap:wrap!important;gap:.75rem!important}
+  [data-testid="stExpander"] div[data-testid="stHorizontalBlock"]>div{min-width:min(100%,280px)!important;flex:1 1 280px!important}
+}
+
+@media (max-width:580px){
+  .block-container{padding-top:2.2rem!important;padding-left:.65rem!important;padding-right:.65rem!important}
+  .portal-head{min-height:0!important;margin:0 0 14px!important;padding:13px 10px!important;border-radius:0 0 18px 18px!important}
+  .portal-head:after{width:220px!important;height:130px!important;right:-90px!important;top:-70px!important}
+  .portal-brand{display:grid!important;grid-template-columns:54px 1px minmax(0,1fr) 1px 76px!important;gap:6px!important;min-height:66px!important;padding:0!important}
+  .portal-logo-claro{width:50px!important;height:50px!important}
+  .portal-logo-logistica{width:72px!important;height:40px!important}
+  .portal-sep{height:32px!important}
+  .portal-title{font-size:clamp(.82rem,4.15vw,1.05rem)!important;line-height:1.13!important;letter-spacing:0!important;white-space:normal!important;word-break:keep-all!important;overflow-wrap:normal!important;text-align:center!important}
+
+  /* Menu de acesso em grade 2x2, sem cortes */
+  body:not(:has(.menu-model-anchor)) [data-testid="stSegmentedControl"]>div{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;width:100%!important;gap:6px!important;border:0!important;overflow:visible!important;background:transparent!important}
+  body:not(:has(.menu-model-anchor)) [data-testid="stSegmentedControl"] button,
+  body:not(:has(.menu-model-anchor)) [data-testid="stSegmentedControl"] label{width:100%!important;min-width:0!important;max-width:none!important;min-height:44px!important;height:auto!important;margin:0!important;padding:8px 6px!important;border:1px solid #c8c8c8!important;border-radius:10px!important;background:#fff!important}
+  body:not(:has(.menu-model-anchor)) [data-testid="stSegmentedControl"] button *,
+  body:not(:has(.menu-model-anchor)) [data-testid="stSegmentedControl"] label *{font-size:.82rem!important;line-height:1.15!important;white-space:normal!important;text-align:center!important;word-break:normal!important;overflow-wrap:anywhere!important}
+
+  /* Menu das áreas ocupa toda a linha; usuário abaixo à direita */
+  div[data-testid="stHorizontalBlock"]:has(.menu-model-anchor){display:grid!important;grid-template-columns:1fr!important;gap:10px!important;width:100%!important}
+  div[data-testid="stHorizontalBlock"]:has(.menu-model-anchor)>div:nth-child(1){grid-column:1!important;width:100%!important;min-width:0!important}
+  div[data-testid="stHorizontalBlock"]:has(.menu-model-anchor)>div:nth-child(3){grid-column:1!important;width:155px!important;min-width:0!important;max-width:155px!important;justify-self:end!important}
+  div[data-testid="stHorizontalBlock"]:has(.menu-model-anchor) [data-testid="stSegmentedControl"]>div{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;width:100%!important}
+  div[data-testid="stHorizontalBlock"]:has(.menu-model-anchor) [data-testid="stSegmentedControl"] button,
+  div[data-testid="stHorizontalBlock"]:has(.menu-model-anchor) [data-testid="stSegmentedControl"] label{min-height:42px!important;height:auto!important;padding:7px 4px!important}
+  div[data-testid="stHorizontalBlock"]:has(.menu-model-anchor) [data-testid="stSegmentedControl"] button *,
+  div[data-testid="stHorizontalBlock"]:has(.menu-model-anchor) [data-testid="stSegmentedControl"] label *{font-size:.72rem!important;line-height:1.1!important;white-space:normal!important;text-align:center!important;overflow-wrap:anywhere!important}
+  div[data-testid="stHorizontalBlock"]:has(.menu-model-anchor) .header-user-name{font-size:.78rem!important;white-space:normal!important;overflow-wrap:anywhere!important}
+
+  /* Um card por linha no celular */
+  div[data-testid="stHorizontalBlock"]:has(.indicador-card-link){display:grid!important;grid-template-columns:1fr!important;gap:12px!important;width:100%!important}
+  div[data-testid="stHorizontalBlock"]:has(.indicador-card-link)>div{width:100%!important;min-width:0!important;max-width:none!important;flex:none!important}
+  .indicador-card-link{min-height:128px!important;padding:16px 12px 14px!important;border-radius:17px!important}
+  .indicador-card-simbolo{width:48px!important;height:48px!important;border-radius:14px!important;font-size:23px!important}
+  .indicador-card-titulo{min-height:0!important;margin-top:11px!important;font-size:.88rem!important;line-height:1.2!important}
+
+  /* Administração e formulários */
+  h1{font-size:1.65rem!important;line-height:1.15!important}
+  h2,h3{line-height:1.2!important}
+  .pendencia{font-size:.88rem!important;padding:.7rem .8rem!important}
+  [data-testid="stTabs"] [data-baseweb="tab"]{font-size:.78rem!important;padding:.55rem .7rem!important}
+  [data-testid="stExpander"] div[data-testid="stHorizontalBlock"]{display:grid!important;grid-template-columns:1fr!important;gap:.55rem!important}
+  [data-testid="stExpander"] div[data-testid="stHorizontalBlock"]>div{width:100%!important;min-width:0!important;max-width:none!important;flex:none!important}
+  [data-testid="stFileUploaderDropzone"]{padding:.75rem!important}
+  [data-testid="stFileUploaderDropzone"] button{width:100%!important}
+  .stButton button,[data-testid="stFormSubmitButton"] button,[data-testid="stDownloadButton"] button{min-height:42px!important;white-space:normal!important;line-height:1.15!important}
+  input,textarea{font-size:16px!important}
+}
 </style>
 <div class="portal-head portal-head-base">
   <div class="portal-brand">
