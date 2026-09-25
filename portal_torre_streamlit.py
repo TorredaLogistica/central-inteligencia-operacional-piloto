@@ -348,8 +348,8 @@ importar_json_legado()
 st.markdown("""
 <style>
 .stApp{background:#eef0f3}
-.block-container{max-width:1900px;padding-top:1rem;padding-left:1.25rem;padding-right:1.25rem}
-.portal-head{position:relative;border-radius:0 0 24px 24px;overflow:hidden;background:linear-gradient(180deg,#b51f25 0%,#cf2b25 48%,#f47b45 100%);box-shadow:0 12px 30px rgba(103,0,0,.17);padding:18px 26px 16px;margin:-1rem -1.25rem 1.25rem;color:#fff}
+.block-container{max-width:1900px;padding-top:2.35rem;padding-left:1.25rem;padding-right:1.25rem}
+.portal-head{position:relative;border-radius:0 0 24px 24px;overflow:hidden;background:linear-gradient(180deg,#b51f25 0%,#cf2b25 48%,#f47b45 100%);box-shadow:0 12px 30px rgba(103,0,0,.17);padding:30px 26px 18px;margin:-1.35rem -1.25rem 1.25rem;color:#fff}
 .portal-head:after{content:"";position:absolute;width:420px;height:220px;right:-130px;top:-120px;border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,.14),transparent 68%)}
 .portal-brand{position:relative;z-index:1;display:flex;align-items:center;justify-content:center;gap:20px;min-height:82px}
 .portal-logo-claro{width:88px;height:88px;object-fit:contain;flex:0 0 auto}
@@ -371,23 +371,24 @@ st.markdown("""
 @media(max-width:580px){.portal-head{padding:14px 12px}.portal-brand{display:grid;grid-template-columns:auto 1px minmax(160px,1fr) 1px auto;gap:8px}.portal-title{font-size:17px}.portal-logo-claro{width:52px;height:52px}.portal-logo-logistica{width:88px;height:44px}.portal-sep{height:34px}.portal-subtitle{font-size:11px}}
 
 /* Posicionamento dos controles no cabeçalho, conforme o portal HTML */
-.portal-head{min-height:178px;padding-bottom:66px}
-.portal-brand{min-height:98px}
+.portal-head{min-height:198px;padding-bottom:76px}
+.portal-brand{min-height:108px;padding-top:8px}
 .welcome-strip{display:none!important}
 /* O primeiro bloco horizontal após o cabeçalho recebe usuário e botão Sair */
-div[data-testid="stHorizontalBlock"]:has(.header-user-name){position:absolute!important;top:34px;right:28px;width:auto!important;z-index:999;gap:12px!important;align-items:center!important}
+div[data-testid="stHorizontalBlock"]:has(.header-user-name){position:absolute!important;top:55px;right:28px;width:auto!important;z-index:999;gap:12px!important;align-items:center!important}
 .header-user-name{color:#fff;font-weight:800;font-size:.95rem;white-space:nowrap;padding-top:9px}
 div[data-testid="stHorizontalBlock"]:has(.header-user-name) button{background:transparent!important;color:#fff!important;border:1px solid rgba(255,255,255,.72)!important;border-radius:12px!important;min-height:40px!important;padding:0 18px!important}
 div[data-testid="stHorizontalBlock"]:has(.header-user-name) button:hover{background:rgba(255,255,255,.14)!important;border-color:#fff!important}
 /* Linha das áreas centralizada na parte inferior do cabeçalho */
-div[data-testid="stHorizontalBlock"]:has(.header-area-anchor){position:absolute!important;top:126px;left:50%;transform:translateX(-50%);width:min(520px,74vw)!important;z-index:998;justify-content:center!important}
+div[data-testid="stHorizontalBlock"]:has(.header-area-anchor){position:absolute!important;top:154px;left:50%;transform:translateX(-50%);width:min(520px,74vw)!important;z-index:998;justify-content:center!important}
 .header-area-anchor{display:none}
 div[data-testid="stHorizontalBlock"]:has(.header-area-anchor) [data-testid="stSegmentedControl"]{width:100%;justify-content:center}
-div[data-testid="stHorizontalBlock"]:has(.header-area-anchor) [data-testid="stSegmentedControl"]>div{justify-content:center;gap:10px}
-div[data-testid="stHorizontalBlock"]:has(.header-area-anchor) [data-testid="stSegmentedControl"] button{border-radius:22px!important;border:1px solid rgba(255,255,255,.70)!important;background:rgba(255,255,255,.10)!important;color:#fff!important;font-weight:800!important;padding:8px 22px!important}
-div[data-testid="stHorizontalBlock"]:has(.header-area-anchor) [data-testid="stSegmentedControl"] button[aria-checked="true"]{background:#fff!important;color:#da291c!important;border-color:#fff!important;box-shadow:0 5px 13px rgba(80,0,0,.18)!important}
-@media(max-width:900px){.portal-head{min-height:202px;padding-bottom:76px}div[data-testid="stHorizontalBlock"]:has(.header-user-name){top:111px;right:18px}.header-user-name{font-size:.82rem}div[data-testid="stHorizontalBlock"]:has(.header-area-anchor){top:154px;width:94vw!important}}
-@media(max-width:580px){.portal-head{min-height:226px;padding-bottom:88px}div[data-testid="stHorizontalBlock"]:has(.header-user-name){top:126px;left:50%;right:auto;transform:translateX(-50%)}div[data-testid="stHorizontalBlock"]:has(.header-area-anchor){top:176px;width:96vw!important}div[data-testid="stHorizontalBlock"]:has(.header-area-anchor) [data-testid="stSegmentedControl"] button{padding:7px 12px!important;font-size:.78rem!important}}
+div[data-testid="stHorizontalBlock"]:has(.header-area-anchor) [data-testid="stSegmentedControl"]>div{justify-content:center;gap:10px;background:transparent!important;border:0!important}
+div[data-testid="stHorizontalBlock"]:has(.header-area-anchor) [data-testid="stSegmentedControl"] button{min-height:44px!important;border-radius:24px!important;border:1.5px solid rgba(255,255,255,.78)!important;background:rgba(255,255,255,.08)!important;color:#fff!important;font-weight:850!important;font-size:1rem!important;padding:9px 25px!important;box-shadow:none!important;transition:all .18s ease}
+div[data-testid="stHorizontalBlock"]:has(.header-area-anchor) [data-testid="stSegmentedControl"] button:hover{background:rgba(255,255,255,.18)!important;border-color:#fff!important;transform:translateY(-1px)}
+div[data-testid="stHorizontalBlock"]:has(.header-area-anchor) [data-testid="stSegmentedControl"] button[aria-checked="true"]{background:#fff!important;color:#da291c!important;border-color:#fff!important;box-shadow:0 7px 16px rgba(80,0,0,.20)!important}
+@media(max-width:900px){.block-container{padding-top:2rem}.portal-head{min-height:230px;padding-top:28px;padding-bottom:86px}div[data-testid="stHorizontalBlock"]:has(.header-user-name){top:128px;right:18px}.header-user-name{font-size:.82rem}div[data-testid="stHorizontalBlock"]:has(.header-area-anchor){top:176px;width:94vw!important}}
+@media(max-width:580px){.block-container{padding-top:1.75rem}.portal-head{min-height:254px;padding-top:24px;padding-bottom:98px}div[data-testid="stHorizontalBlock"]:has(.header-user-name){top:143px;left:50%;right:auto;transform:translateX(-50%)}div[data-testid="stHorizontalBlock"]:has(.header-area-anchor){top:196px;width:96vw!important}div[data-testid="stHorizontalBlock"]:has(.header-area-anchor) [data-testid="stSegmentedControl"]>div{gap:6px}div[data-testid="stHorizontalBlock"]:has(.header-area-anchor) [data-testid="stSegmentedControl"] button{min-height:40px!important;padding:7px 13px!important;font-size:.82rem!important}}
 </style>
 <div class="portal-head">
   <div class="portal-brand">
