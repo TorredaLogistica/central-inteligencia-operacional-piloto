@@ -1,0 +1,32 @@
+name: Manter App Streamlit Vivo (Commit Inteligente Limpo)
+
+on:
+  schedule:
+    - cron: '0 */4 * * *' # Executa a cada 4 horas automaticamente
+  workflow_dispatch: # Permite que você clique para testar manualmente
+
+jobs:
+  sinalizar_atividade:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # Dá permissão para o robô alterar o repositório
+    steps:
+      - name: Checkout do código
+        uses: actions/checkout@v4
+
+      - name: Configurar identidade do Git
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@://github.com"
+
+      - name: Atualizar commit fixo (Evita acumular histórico)
+        run: |
+          # Cria ou atualiza um arquivo de texto com a data atual
+          echo "Último ping: $(date)" > .github_ping.txt
+          
+          git add .github_ping.txt
+          git commit -m "Sinalizador de atividade para o Streamlit [skip ci]"
+          
+          # O '--force' garante que o repositório não acumule uma lista gigante de commits
+          git push --force
+          echo "✅ Atividade registrada e histórico mantido limpo!"
