@@ -747,21 +747,23 @@ if st.session_state.admin_logado:
                             "Salvar alterações",
                             type="primary",
                             use_container_width=True,
-                            disabled=not confirmar_edicao,
                         )
                     if salvar_edicao:
-                        try:
-                            editar_cadastro_usuario(
-                                usuario_item["id"],
-                                nome_editado,
-                                usuario_editado,
-                                email_editado,
-                                st.session_state.admin_logado,
-                            )
-                            st.success("Cadastro atualizado. O próximo login deverá usar os dados informados.")
-                            st.rerun()
-                        except ValueError as exc:
-                            st.error(str(exc))
+                        if not confirmar_edicao:
+                            st.warning("Marque a confirmação antes de salvar as alterações.")
+                        else:
+                            try:
+                                editar_cadastro_usuario(
+                                    usuario_item["id"],
+                                    nome_editado,
+                                    usuario_editado,
+                                    email_editado,
+                                    st.session_state.admin_logado,
+                                )
+                                st.success("Cadastro atualizado. O próximo login deverá usar os dados informados.")
+                                st.rerun()
+                            except ValueError as exc:
+                                st.error(str(exc))
 
                 acao1, acao2 = st.columns(2)
                 if usuario_item["ativo"]:
