@@ -398,9 +398,7 @@ def importar_usuarios_json_manual(arquivo, administrador):
 
     obrigatorios = {"nome_hash", "email_hash", "senha_hash", "salt"}
     analisados = len(usuarios)
-    incluidos = 0
-    atualizados = 0
-    ignorados = 0
+    incluidos = atualizados = ignorados = 0
     erros = []
 
     with conectar() as con:
@@ -409,13 +407,15 @@ def importar_usuarios_json_manual(arquivo, administrador):
                 ignorados += 1
                 erros.append(f"Registro {indice}: estrutura inválida.")
                 continue
+
             ausentes = sorted(campo for campo in obrigatorios if not item.get(campo))
             if ausentes:
                 ignorados += 1
                 erros.append(f"Registro {indice}: campos ausentes: {', '.join(ausentes)}.")
                 continue
+
             try:
-                int(item.get("iteracoes", ITERACOES))
+                iteracoes = int(item.get("iteracoes", ITERACOES))
                 bytes.fromhex(str(item["salt"]))
             except (TypeError, ValueError):
                 ignorados += 1
@@ -423,27 +423,40 @@ def importar_usuarios_json_manual(arquivo, administrador):
                 continue
 
             existente = con.execute(
-                "SELECT id FROM usuarios WHERE nome_hash=? OR email_hash=?",
+                """SELECT id,nome_completo,usuario,email,perfil,criado_em,aprovado_em,
+                          atualizado_em,codigo_dispositivo_hash
+                   FROM usuarios WHERE nome_hash=? OR email_hash=?""",
                 (item["nome_hash"], item["email_hash"]),
             ).fetchone()
+
             agora = agora_iso()
-            aprovado_em = item.get("aprovado_em") or agora
+            criado_em = item.get("criado_em") or (existente["criado_em"] if existente else None) or item.get("aprovado_em") or agora
+            aprovado_em = item.get("aprovado_em") or (existente["aprovado_em"] if existente else None)
+            atualizado_em = item.get("atualizado_em") or agora
+            perfil = str(item.get("perfil") or (existente["perfil"] if existente else None) or "USUARIO")
+            ativo = 1 if item.get("ativo", True) else 0
             valores = (
+                item.get("nome_completo") or (existente["nome_completo"] if existente else None),
+                item.get("usuario") or (existente["usuario"] if existente else None),
+                item.get("email") or (existente["email"] if existente else None),
                 item["nome_hash"],
                 item["email_hash"],
                 item["senha_hash"],
                 item["salt"],
-                int(item.get("iteracoes", ITERACOES)),
-                item.get("codigo_dispositivo_hash"),
-                1 if item.get("ativo", True) else 0,
+                iteracoes,
+                item.get("codigo_dispositivo_hash") or (existente["codigo_dispositivo_hash"] if existente else None),
+                ativo,
+                perfil,
+                criado_em,
                 aprovado_em,
-                agora,
+                atualizado_em,
             )
+
             if existente:
                 con.execute(
-                    """UPDATE usuarios
-                       SET nome_hash=?,email_hash=?,senha_hash=?,salt=?,iteracoes=?,
-                           codigo_dispositivo_hash=?,ativo=?,aprovado_em=?,atualizado_em=?
+                    """UPDATE usuarios SET
+                       nome_completo=?,usuario=?,email=?,nome_hash=?,email_hash=?,senha_hash=?,salt=?,iteracoes=?,
+                       codigo_dispositivo_hash=?,ativo=?,perfil=?,criado_em=?,aprovado_em=?,atualizado_em=?
                        WHERE id=?""",
                     valores + (existente["id"],),
                 )
@@ -451,17 +464,17 @@ def importar_usuarios_json_manual(arquivo, administrador):
             else:
                 con.execute(
                     """INSERT INTO usuarios
-                       (nome_hash,email_hash,senha_hash,salt,iteracoes,codigo_dispositivo_hash,
-                        ativo,perfil,criado_em,aprovado_em,atualizado_em)
-                       VALUES(?,?,?,?,?,?,?,'USUARIO',?,?,?)""",
-                    valores[:7] + (aprovado_em, aprovado_em, agora),
+                       (nome_completo,usuario,email,nome_hash,email_hash,senha_hash,salt,iteracoes,
+                        codigo_dispositivo_hash,ativo,perfil,criado_em,aprovado_em,atualizado_em)
+                       VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                    valores,
                 )
                 incluidos += 1
 
         con.execute(
             "INSERT INTO auditoria(acao,referencia,administrador,criado_em) VALUES(?,?,?,?)",
             (
-                "IMPORTAR_USUARIOS_JSON",
+                "RESTAURAR_BACKUP_USUARIOS_JSON",
                 f"analisados={analisados};incluidos={incluidos};atualizados={atualizados};ignorados={ignorados}",
                 administrador,
                 agora_iso(),
@@ -542,10 +555,25 @@ def complementar_cadastros_xlsx(arquivo, administrador):
             "ignorados": ignorados, "erros": erros}
 
 
-def exportar_json_compatibilidade():
+def exportar_backup_completo_usuarios():
+    campos = (
+        "nome_completo,usuario,email,nome_hash,email_hash,senha_hash,salt,iteracoes,"
+        "codigo_dispositivo_hash,ativo,perfil,criado_em,aprovado_em,atualizado_em"
+    )
     with conectar() as con:
-        linhas = con.execute("SELECT nome_hash,email_hash,senha_hash,salt,iteracoes,codigo_dispositivo_hash,ativo,aprovado_em FROM usuarios").fetchall()
-    return json.dumps({"versao": 28, "usuarios": [dict(x) for x in linhas], "atualizado_em": agora_iso()}, ensure_ascii=False, indent=2)
+        linhas = con.execute(
+            f"SELECT {campos} FROM usuarios ORDER BY id"
+        ).fetchall()
+    return json.dumps(
+        {
+            "tipo": "BACKUP_COMPLETO_USUARIOS_CENTRAL",
+            "versao": 29,
+            "usuarios": [dict(linha) for linha in linhas],
+            "atualizado_em": agora_iso(),
+        },
+        ensure_ascii=False,
+        indent=2,
+    )
 
 
 iniciar_banco()
@@ -701,7 +729,7 @@ if st.session_state.admin_logado:
     aba_pendencias, aba_usuarios, aba_importacao = st.tabs([
         f"Solicitações pendentes ({len(pendentes)})",
         f"Usuários cadastrados ({len(usuarios_admin)})",
-        "Importar usuários",
+        "Restaurar backup",
     ])
 
     with aba_pendencias:
@@ -807,13 +835,13 @@ if st.session_state.admin_logado:
                     st.rerun()
 
     with aba_importacao:
-        st.subheader("Importar usuários do JSON legado")
+        st.subheader("Restaurar backup de usuários")
         st.info(
-            "A importação inclui usuários novos e atualiza cadastros já existentes pelo hash do usuário ou do e-mail. "
-            "Os demais usuários do banco serão preservados."
+            "Selecione o backup JSON completo. A restauração inclui usuários novos e atualiza os já existentes, "
+            "preservando nomes, credenciais, status, perfil e datas administrativas."
         )
         arquivo_json = st.file_uploader(
-            "Selecione o usuarios.json antigo",
+            "Selecione o backup_usuarios_completo.json",
             type=["json"],
             accept_multiple_files=False,
             key="importar_usuarios_json",
@@ -832,7 +860,7 @@ if st.session_state.admin_logado:
             try:
                 resultado = importar_usuarios_json_manual(arquivo_json, st.session_state.admin_logado)
                 st.success(
-                    f"Importação concluída. Analisados: {resultado['analisados']} | "
+                    f"Restauração concluída. Analisados: {resultado['analisados']} | "
                     f"Incluídos: {resultado['incluidos']} | Atualizados: {resultado['atualizados']} | "
                     f"Ignorados: {resultado['ignorados']}."
                 )
@@ -880,7 +908,14 @@ if st.session_state.admin_logado:
             except ValueError as exc:
                 st.error(str(exc))
 
-    st.download_button("Exportar usuarios.json compatível", exportar_json_compatibilidade(), "usuarios.json", "application/json")
+    nome_backup = f"backup_usuarios_completo_{datetime.now(FUSO_BRASILIA).strftime('%Y%m%d_%H%M%S')}.json"
+    st.download_button(
+        "Exportar backup completo de usuários",
+        exportar_backup_completo_usuarios(),
+        nome_backup,
+        "application/json",
+        use_container_width=True,
+    )
     if st.button("Sair da administração"):
         st.session_state.admin_logado = None
         st.rerun()
