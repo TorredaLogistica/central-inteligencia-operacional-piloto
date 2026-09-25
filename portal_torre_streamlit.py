@@ -115,30 +115,22 @@ def exibir_central_indicadores():
     nome = usuario_atual.get("nome_completo") or usuario_atual.get("usuario") or "Usuário"
 
     usuario_exibicao = usuario_atual.get("usuario") or nome
-    if "area_indicadores" not in st.session_state:
-        st.session_state.area_indicadores = "Armazenagem"
-
-    esquerda_controles, centro_controles, direita_controles = st.columns([2.5, 1.3, 1.2])
+    esquerda_controles, centro_controles, direita_controles = st.columns([2.7, 1.1, 1.2])
     with esquerda_controles:
         st.markdown('<span class="header-area-anchor"></span>', unsafe_allow_html=True)
-        area_cols = st.columns(3, gap="small")
-        for coluna_area, nome_area in zip(area_cols, INDICADORES.keys()):
-            with coluna_area:
-                selecionado = st.session_state.area_indicadores == nome_area
-                if st.button(
-                    nome_area,
-                    key=f"area_btn_{nome_area}",
-                    type="primary" if selecionado else "secondary",
-                    use_container_width=True,
-                ):
-                    st.session_state.area_indicadores = nome_area
-                    st.rerun()
-        area = st.session_state.area_indicadores
+        area = st.segmented_control(
+            "Área operacional",
+            list(INDICADORES.keys()),
+            default="Armazenagem",
+            key="area_indicadores_padrao",
+            label_visibility="collapsed",
+        ) or "Armazenagem"
     with direita_controles:
         st.markdown(f'<div class="header-user-name">Usuário: {usuario_exibicao}</div>', unsafe_allow_html=True)
         if st.button("Sair", use_container_width=True, type="secondary", key="btn_sair_header"):
             st.session_state.usuario_logado = None
             st.rerun()
+
     indicadores = INDICADORES.get(area, [])
 
     if not indicadores:
@@ -668,6 +660,67 @@ div[data-testid="stHorizontalBlock"]:has(.header-area-anchor)>div:nth-child(1) d
   div[data-testid="stHorizontalBlock"]:has(.header-area-anchor)>div:nth-child(1) div[data-testid="stHorizontalBlock"]{gap:5px!important}
   .st-key-area_btn_Armazenagem button,.st-key-area_btn_Triagem button,.st-key-area_btn_Reversa button{height:46px!important;min-height:46px!important;padding:0 5px!important}
   .st-key-area_btn_Armazenagem button p,.st-key-area_btn_Triagem button p,.st-key-area_btn_Reversa button p{font-size:.76rem!important}
+}
+
+/* Padrao unico de botoes, equivalente ao menu de acesso */
+div[data-testid="stHorizontalBlock"]:has(.header-area-anchor){
+  position:relative!important;top:auto!important;left:auto!important;right:auto!important;transform:none!important;
+  width:100%!important;display:flex!important;align-items:flex-start!important;margin:0 auto 18px!important;gap:18px!important;
+}
+div[data-testid="stHorizontalBlock"]:has(.header-area-anchor)>div:nth-child(1){flex:0 0 560px!important;min-width:560px!important;max-width:560px!important}
+div[data-testid="stHorizontalBlock"]:has(.header-area-anchor)>div:nth-child(2){flex:1 1 auto!important}
+div[data-testid="stHorizontalBlock"]:has(.header-area-anchor)>div:nth-child(3){flex:0 0 190px!important;min-width:190px!important;max-width:190px!important}
+.header-area-anchor{display:none!important}
+
+/* Grupo Armazenagem, Triagem e Reversa */
+div[data-testid="stHorizontalBlock"]:has(.header-area-anchor) [data-testid="stSegmentedControl"]{
+  width:100%!important;display:flex!important;justify-content:flex-start!important;
+}
+div[data-testid="stHorizontalBlock"]:has(.header-area-anchor) [data-testid="stSegmentedControl"]>div{
+  display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;width:100%!important;gap:0!important;
+  border:1px solid #c9c9c9!important;border-radius:12px!important;overflow:hidden!important;background:#fff!important;
+}
+div[data-testid="stHorizontalBlock"]:has(.header-area-anchor) [data-testid="stSegmentedControl"] button,
+div[data-testid="stHorizontalBlock"]:has(.header-area-anchor) [data-testid="stSegmentedControl"] label{
+  width:100%!important;min-width:0!important;max-width:none!important;min-height:48px!important;border:0!important;border-right:1px solid #d0d0d0!important;border-radius:0!important;background:#fff!important;color:#111!important;box-shadow:none!important;padding:0 15px!important;
+}
+div[data-testid="stHorizontalBlock"]:has(.header-area-anchor) [data-testid="stSegmentedControl"] button:last-child,
+div[data-testid="stHorizontalBlock"]:has(.header-area-anchor) [data-testid="stSegmentedControl"] label:last-child{border-right:0!important}
+div[data-testid="stHorizontalBlock"]:has(.header-area-anchor) [data-testid="stSegmentedControl"] button *,
+div[data-testid="stHorizontalBlock"]:has(.header-area-anchor) [data-testid="stSegmentedControl"] label *{
+  color:#111!important;font-weight:700!important;font-size:1rem!important;white-space:nowrap!important;overflow:visible!important;text-overflow:clip!important;opacity:1!important;
+}
+/* Selecionado no mesmo padrao visual de Entrar */
+div[data-testid="stHorizontalBlock"]:has(.header-area-anchor) [data-testid="stSegmentedControl"] button[aria-checked="true"],
+div[data-testid="stHorizontalBlock"]:has(.header-area-anchor) [data-testid="stSegmentedControl"] button[aria-pressed="true"],
+div[data-testid="stHorizontalBlock"]:has(.header-area-anchor) [data-testid="stSegmentedControl"] button[data-state="on"],
+div[data-testid="stHorizontalBlock"]:has(.header-area-anchor) [data-testid="stSegmentedControl"] label:has(input:checked){
+  background:#fff1f1!important;color:#e3262e!important;box-shadow:inset 0 0 0 1px #f04b51!important;
+}
+div[data-testid="stHorizontalBlock"]:has(.header-area-anchor) [data-testid="stSegmentedControl"] button[aria-checked="true"] *,
+div[data-testid="stHorizontalBlock"]:has(.header-area-anchor) [data-testid="stSegmentedControl"] button[aria-pressed="true"] *,
+div[data-testid="stHorizontalBlock"]:has(.header-area-anchor) [data-testid="stSegmentedControl"] button[data-state="on"] *,
+div[data-testid="stHorizontalBlock"]:has(.header-area-anchor) [data-testid="stSegmentedControl"] label:has(input:checked) *{
+  color:#e3262e!important;font-weight:800!important;opacity:1!important;
+}
+/* Sair segue o mesmo padrao */
+div[data-testid="stHorizontalBlock"]:has(.header-area-anchor) .header-user-name{text-align:center!important;color:#111!important;font-weight:850!important;padding:0 0 7px!important;white-space:nowrap!important}
+.st-key-btn_sair_header button{width:100%!important;min-height:44px!important;border-radius:12px!important;background:#fff1f1!important;border:1px solid #f04b51!important;box-shadow:none!important}
+.st-key-btn_sair_header button p,.st-key-btn_sair_header button span{color:#e3262e!important;font-weight:800!important;opacity:1!important}
+.st-key-btn_sair_header button:hover{background:#ffe3e4!important;border-color:#e3262e!important}
+
+@media(max-width:900px){
+ div[data-testid="stHorizontalBlock"]:has(.header-area-anchor){display:grid!important;grid-template-columns:1fr!important}
+ div[data-testid="stHorizontalBlock"]:has(.header-area-anchor)>div:nth-child(1){width:min(560px,100%)!important;min-width:0!important;max-width:560px!important}
+ div[data-testid="stHorizontalBlock"]:has(.header-area-anchor)>div:nth-child(2){display:none!important}
+ div[data-testid="stHorizontalBlock"]:has(.header-area-anchor)>div:nth-child(3){width:190px!important;justify-self:end!important}
+}
+@media(max-width:580px){
+ div[data-testid="stHorizontalBlock"]:has(.header-area-anchor)>div:nth-child(1){width:100%!important;max-width:100%!important}
+ div[data-testid="stHorizontalBlock"]:has(.header-area-anchor) [data-testid="stSegmentedControl"] button,
+ div[data-testid="stHorizontalBlock"]:has(.header-area-anchor) [data-testid="stSegmentedControl"] label{padding:0 5px!important;min-height:44px!important}
+ div[data-testid="stHorizontalBlock"]:has(.header-area-anchor) [data-testid="stSegmentedControl"] button *,
+ div[data-testid="stHorizontalBlock"]:has(.header-area-anchor) [data-testid="stSegmentedControl"] label *{font-size:.78rem!important}
 }
 </style>
 <div class="portal-head portal-head-base">
