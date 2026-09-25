@@ -622,6 +622,53 @@ div[data-testid="stHorizontalBlock"]:has(.header-area-anchor)>div:nth-child(3){d
   div[data-testid="stHorizontalBlock"]:has(.header-area-anchor)>div:nth-child(3){justify-self:end!important}
   .st-key-area_btn_Armazenagem button p,.st-key-area_btn_Triagem button p,.st-key-area_btn_Reversa button p{font-size:.83rem!important}
 }
+
+/* Ajuste final dos tres botoes: mesmo tamanho, texto completo e selecao evidente */
+div[data-testid="stHorizontalBlock"]:has(.header-area-anchor)>div:nth-child(1){
+  flex:0 0 570px!important;min-width:570px!important;max-width:570px!important;
+}
+div[data-testid="stHorizontalBlock"]:has(.header-area-anchor)>div:nth-child(1) div[data-testid="stHorizontalBlock"]{
+  display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:10px!important;width:100%!important;
+}
+div[data-testid="stHorizontalBlock"]:has(.header-area-anchor)>div:nth-child(1) div[data-testid="stHorizontalBlock"]>div{
+  width:100%!important;min-width:0!important;max-width:none!important;flex:none!important;
+}
+.st-key-area_btn_Armazenagem,.st-key-area_btn_Triagem,.st-key-area_btn_Reversa,
+.st-key-area_btn_Armazenagem [data-testid="stButton"],.st-key-area_btn_Triagem [data-testid="stButton"],.st-key-area_btn_Reversa [data-testid="stButton"]{
+  width:100%!important;min-width:0!important;max-width:none!important;
+}
+.st-key-area_btn_Armazenagem button,.st-key-area_btn_Triagem button,.st-key-area_btn_Reversa button{
+  width:100%!important;min-width:0!important;max-width:none!important;height:50px!important;min-height:50px!important;
+  padding:0 12px!important;border-radius:14px!important;overflow:visible!important;white-space:nowrap!important;
+}
+.st-key-area_btn_Armazenagem button p,.st-key-area_btn_Triagem button p,.st-key-area_btn_Reversa button p,
+.st-key-area_btn_Armazenagem button span,.st-key-area_btn_Triagem button span,.st-key-area_btn_Reversa button span{
+  display:block!important;width:100%!important;max-width:none!important;overflow:visible!important;text-overflow:clip!important;
+  white-space:nowrap!important;text-align:center!important;font-size:.96rem!important;line-height:1.15!important;font-weight:900!important;
+}
+/* Inativos */
+.st-key-area_btn_Armazenagem button[kind="secondary"],.st-key-area_btn_Triagem button[kind="secondary"],.st-key-area_btn_Reversa button[kind="secondary"]{
+  background:#ffffff!important;border:2px solid #8d8d8d!important;color:#111111!important;box-shadow:0 4px 10px rgba(0,0,0,.12)!important;
+}
+.st-key-area_btn_Armazenagem button[kind="secondary"] *,.st-key-area_btn_Triagem button[kind="secondary"] *,.st-key-area_btn_Reversa button[kind="secondary"] *{
+  color:#111111!important;font-weight:900!important;opacity:1!important;
+}
+/* Selecionado */
+.st-key-area_btn_Armazenagem button[kind="primary"],.st-key-area_btn_Triagem button[kind="primary"],.st-key-area_btn_Reversa button[kind="primary"]{
+  background:#c8102e!important;border:2px solid #9f081f!important;color:#ffffff!important;
+  box-shadow:0 0 0 3px rgba(200,16,46,.18),0 9px 20px rgba(152,8,31,.38)!important;transform:translateY(-2px)!important;
+}
+.st-key-area_btn_Armazenagem button[kind="primary"] *,.st-key-area_btn_Triagem button[kind="primary"] *,.st-key-area_btn_Reversa button[kind="primary"] *{
+  color:#ffffff!important;font-weight:900!important;opacity:1!important;
+}
+@media(max-width:900px){
+  div[data-testid="stHorizontalBlock"]:has(.header-area-anchor)>div:nth-child(1){width:min(570px,100%)!important;min-width:0!important;max-width:570px!important}
+}
+@media(max-width:580px){
+  div[data-testid="stHorizontalBlock"]:has(.header-area-anchor)>div:nth-child(1) div[data-testid="stHorizontalBlock"]{gap:5px!important}
+  .st-key-area_btn_Armazenagem button,.st-key-area_btn_Triagem button,.st-key-area_btn_Reversa button{height:46px!important;min-height:46px!important;padding:0 5px!important}
+  .st-key-area_btn_Armazenagem button p,.st-key-area_btn_Triagem button p,.st-key-area_btn_Reversa button p{font-size:.76rem!important}
+}
 </style>
 <div class="portal-head portal-head-base">
   <div class="portal-brand">
