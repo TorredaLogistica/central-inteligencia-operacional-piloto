@@ -542,6 +542,74 @@ def credenciais_admin_validas(usuario, senha):
     return bool(admin_user and admin_hash and hmac.compare_digest(usuario, admin_user) and hmac.compare_digest(sha256(senha), admin_hash))
 
 
+def gerar_url_email_status_solicitacao(solicitacao, aprovado, observacao=""):
+    nome = solicitacao.get("nome_completo") or solicitacao.get("usuario") or "Usuário"
+    destinatario = solicitacao.get("email") or ""
+    tipo = solicitacao.get("tipo")
+    observacao = str(observacao or "").strip()
+
+    if tipo == "CADASTRO" and aprovado:
+        assunto = "Central de Inteligência Operacional | Cadastro aprovado"
+        corpo = f"""Olá, {nome}.
+
+Informamos que sua solicitação de acesso à Central de Inteligência Operacional foi aprovada.
+
+Dados do cadastro:
+Usuário: {solicitacao.get('usuario') or '-'}
+E-mail: {destinatario}
+Status: Aprovado
+
+Você já pode acessar a Central utilizando seu usuário, e-mail corporativo e a senha cadastrada.
+
+Em caso de dificuldade no acesso, entre em contato com a equipe responsável.
+
+Atenciosamente,
+Central de Inteligência Operacional"""
+    elif tipo == "CADASTRO":
+        assunto = "Central de Inteligência Operacional | Solicitação de cadastro"
+        corpo = f"""Olá, {nome}.
+
+Informamos que sua solicitação de acesso à Central de Inteligência Operacional não foi aprovada neste momento.
+
+Status da solicitação: Reprovada
+Observação: {observacao or 'Não informada'}
+
+Caso necessite de esclarecimentos ou de uma nova análise, entre em contato com a equipe responsável.
+
+Atenciosamente,
+Central de Inteligência Operacional"""
+    elif aprovado:
+        assunto = "Central de Inteligência Operacional | Redefinição de senha aprovada"
+        corpo = f"""Olá, {nome}.
+
+Sua solicitação de redefinição de senha da Central de Inteligência Operacional foi aprovada.
+
+A nova senha cadastrada na solicitação já está ativa e poderá ser utilizada no próximo acesso.
+
+Por segurança, nunca compartilhe sua senha com outras pessoas.
+
+Atenciosamente,
+Central de Inteligência Operacional"""
+    else:
+        assunto = "Central de Inteligência Operacional | Solicitação de redefinição de senha"
+        corpo = f"""Olá, {nome}.
+
+Informamos que sua solicitação de redefinição de senha não foi aprovada neste momento.
+
+Status da solicitação: Reprovada
+Observação: {observacao or 'Não informada'}
+
+Caso não reconheça essa solicitação ou precise de uma nova análise, entre em contato com a equipe responsável.
+
+Atenciosamente,
+Central de Inteligência Operacional"""
+
+    return (
+        "https://outlook.office.com/mail/deeplink/compose"
+        f"?to={quote(destinatario)}&subject={quote(assunto)}&body={quote(corpo)}"
+    )
+
+
 def decidir_solicitacao(solicitacao_id, aprovar, administrador, observacao=""):
     with conectar() as con:
         s = con.execute("SELECT * FROM solicitacoes WHERE id=? AND status='PENDENTE'", (solicitacao_id,)).fetchone()
@@ -1166,6 +1234,19 @@ if st.session_state.admin_logado:
     usuarios_admin = listar_usuarios()
 
     st.title("Administração")
+    url_email_pendente = st.session_state.pop("outlook_email_pendente", None)
+    if url_email_pendente:
+        url_email_js = json.dumps(url_email_pendente)
+        components_html(
+            f"<script>window.parent.open({url_email_js}, '_blank', 'noopener,noreferrer');</script>",
+            height=0,
+        )
+        st.info("O e-mail de retorno foi preparado no Outlook Web. Revise a mensagem e clique em Enviar.")
+        st.link_button(
+            "Abrir e-mail no Outlook Web",
+            url_email_pendente,
+            use_container_width=True,
+        )
     st.markdown(f'<div class="pendencia">{len(pendentes)} solicitação(ões) pendente(s)</div>', unsafe_allow_html=True)
     st.caption("Datas e horários apresentados no fuso de Brasília (America/Sao_Paulo).")
     st.write("")
@@ -1191,11 +1272,11 @@ if st.session_state.admin_logado:
                 c1, c2 = st.columns(2)
                 if c1.button("Aprovar", key=f"aprovar_{item['id']}", type="primary", use_container_width=True):
                     decidir_solicitacao(item["id"], True, st.session_state.admin_logado, obs)
-                    st.success(f"Solicitação aprovada em {data_hora_brasilia(agora_iso())} (Brasília).")
+                    st.session_state.outlook_email_pendente = gerar_url_email_status_solicitacao(item, True, obs)
                     st.rerun()
                 if c2.button("Rejeitar", key=f"rejeitar_{item['id']}", use_container_width=True):
                     decidir_solicitacao(item["id"], False, st.session_state.admin_logado, obs)
-                    st.warning(f"Solicitação rejeitada em {data_hora_brasilia(agora_iso())} (Brasília).")
+                    st.session_state.outlook_email_pendente = gerar_url_email_status_solicitacao(item, False, obs)
                     st.rerun()
 
     with aba_usuarios:
