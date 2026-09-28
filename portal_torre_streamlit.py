@@ -11,6 +11,7 @@ from pathlib import Path
 
 import streamlit as st
 import pandas as pd
+from streamlit.components.v1 import html as components_html
 
 DB_PATH = Path(os.getenv("TORRE_DB_PATH", "torre_usuarios.db"))
 USUARIOS_JSON = Path(os.getenv("TORRE_USUARIOS_JSON", "usuarios.json"))
@@ -111,6 +112,151 @@ def gerar_url_canal_vermelho():
     )
 
 
+def registrar_acesso_indicador(usuario_atual, area, indicador, url):
+    if "sessao_acesso_id" not in st.session_state:
+        st.session_state.sessao_acesso_id = secrets.token_hex(16)
+    with conectar() as con:
+        con.execute(
+            """INSERT INTO acessos_indicadores
+               (usuario_id,nome_completo,usuario,area,indicador,url,acessado_em,sessao_id)
+               VALUES(?,?,?,?,?,?,?,?)""",
+            (
+                usuario_atual.get("id"),
+                usuario_atual.get("nome_completo"),
+                usuario_atual.get("usuario"),
+                area,
+                indicador,
+                url,
+                agora_iso(),
+                st.session_state.sessao_acesso_id,
+            ),
+        )
+
+
+def consultar_acessos_indicadores(data_inicial, data_final, area=None, indicador=None, usuario_id=None):
+    inicio_local = datetime.combine(data_inicial, datetime.min.time(), tzinfo=FUSO_BRASILIA)
+    fim_local = datetime.combine(data_final, datetime.max.time(), tzinfo=FUSO_BRASILIA)
+    inicio_utc = inicio_local.astimezone(timezone.utc).isoformat()
+    fim_utc = fim_local.astimezone(timezone.utc).isoformat()
+    filtros = ["acessado_em BETWEEN ? AND ?"]
+    parametros = [inicio_utc, fim_utc]
+    if area and area != "Todas":
+        filtros.append("area=?")
+        parametros.append(area)
+    if indicador and indicador != "Todos":
+        filtros.append("indicador=?")
+        parametros.append(indicador)
+    if usuario_id:
+        filtros.append("usuario_id=?")
+        parametros.append(usuario_id)
+    with conectar() as con:
+        linhas = con.execute(
+            f"""SELECT id,usuario_id,nome_completo,usuario,area,indicador,url,acessado_em,sessao_id
+                FROM acessos_indicadores
+                WHERE {' AND '.join(filtros)}
+                ORDER BY acessado_em DESC""",
+            parametros,
+        ).fetchall()
+    return [dict(linha) for linha in linhas]
+
+
+def exibir_relatorio_acessos(usuarios_admin):
+    st.subheader("Acessos aos indicadores")
+    st.caption(
+        "O relatório registra somente a abertura do indicador pela Central. Não registra filtros, conteúdo consultado "
+        "ou ações realizadas dentro do indicador. Utilize os dados para análise de adoção e suporte, não para avaliação individual de desempenho."
+    )
+    hoje = datetime.now(FUSO_BRASILIA).date()
+    primeiro_dia = hoje.replace(day=1)
+    f1, f2, f3 = st.columns(3)
+    data_inicial = f1.date_input("Data inicial", value=primeiro_dia, key="acesso_data_inicial")
+    data_final = f2.date_input("Data final", value=hoje, key="acesso_data_final")
+    area = f3.selectbox("Área", ["Todas"] + list(INDICADORES.keys()), key="acesso_area")
+
+    nomes_indicadores = sorted({item["titulo"] for itens in INDICADORES.values() for item in itens})
+    usuarios_opcoes = {"Todos": None}
+    for item in usuarios_admin:
+        rotulo = item.get("nome_completo") or item.get("usuario") or f"Cadastro {item['id']}"
+        usuarios_opcoes[f"{rotulo} | {item.get('usuario') or 'legado'}"] = item["id"]
+    f4, f5 = st.columns(2)
+    indicador = f4.selectbox("Indicador", ["Todos"] + nomes_indicadores, key="acesso_indicador")
+    usuario_rotulo = f5.selectbox("Usuário", list(usuarios_opcoes.keys()), key="acesso_usuario")
+
+    if data_inicial > data_final:
+        st.error("A data inicial não pode ser posterior à data final.")
+        return
+
+    acessos = consultar_acessos_indicadores(
+        data_inicial, data_final, area, indicador, usuarios_opcoes[usuario_rotulo]
+    )
+    total = len(acessos)
+    usuarios_distintos = len({x["usuario_id"] for x in acessos if x["usuario_id"] is not None})
+    indicadores_distintos = len({x["indicador"] for x in acessos})
+    ultimo = data_hora_brasilia(acessos[0]["acessado_em"]) if acessos else "-"
+    k1, k2, k3, k4 = st.columns(4)
+    k1.metric("Total de acessos", total)
+    k2.metric("Usuários distintos", usuarios_distintos)
+    k3.metric("Indicadores acessados", indicadores_distintos)
+    k4.metric("Último acesso", ultimo)
+
+    if not acessos:
+        st.info("Nenhum acesso foi registrado para os filtros selecionados.")
+    else:
+        df = pd.DataFrame(acessos)
+        df["Data e hora"] = df["acessado_em"].apply(data_hora_brasilia)
+        df["Nome"] = df["nome_completo"].fillna("Cadastro legado")
+        df["Usuário"] = df["usuario"].fillna("Não disponível")
+        st.markdown("#### Detalhamento dos acessos")
+        st.dataframe(
+            df[["Data e hora", "Nome", "Usuário", "area", "indicador"]].rename(
+                columns={"area": "Área", "indicador": "Indicador"}
+            ),
+            use_container_width=True,
+            hide_index=True,
+        )
+
+        por_indicador = (
+            df.groupby(["area", "indicador"], dropna=False)
+              .agg(Acessos=("id", "count"), Usuarios_distintos=("usuario_id", "nunique"), Ultimo_acesso=("acessado_em", "max"))
+              .reset_index()
+        )
+        por_indicador["Último acesso"] = por_indicador["Ultimo_acesso"].apply(data_hora_brasilia)
+        st.markdown("#### Resumo por indicador")
+        st.dataframe(
+            por_indicador[["area", "indicador", "Acessos", "Usuarios_distintos", "Último acesso"]].rename(
+                columns={"area": "Área", "indicador": "Indicador", "Usuarios_distintos": "Usuários distintos"}
+            ),
+            use_container_width=True,
+            hide_index=True,
+        )
+
+    ids_com_acesso = {x["usuario_id"] for x in acessos if x["usuario_id"] is not None}
+    sem_acesso = [
+        {
+            "Nome": u.get("nome_completo") or "Cadastro legado",
+            "Usuário": u.get("usuario") or "Não disponível",
+            "Status": "Ativo" if u.get("ativo") else "Desativado",
+        }
+        for u in usuarios_admin if u.get("ativo") and u["id"] not in ids_com_acesso
+    ]
+    with st.expander(f"Usuários ativos sem clique registrado no período ({len(sem_acesso)})"):
+        st.caption("A ausência de registro significa apenas que não houve abertura pela Central no período selecionado.")
+        if sem_acesso:
+            st.dataframe(pd.DataFrame(sem_acesso), use_container_width=True, hide_index=True)
+        else:
+            st.success("Todos os usuários ativos possuem ao menos um clique registrado no período.")
+
+    if acessos:
+        csv = pd.DataFrame(acessos).to_csv(index=False).encode("utf-8-sig")
+        st.download_button(
+            "Exportar acessos filtrados (CSV)",
+            csv,
+            f"acessos_indicadores_{data_inicial}_{data_final}.csv",
+            "text/csv",
+            use_container_width=True,
+        )
+
+
 def exibir_central_indicadores():
     usuario_atual = st.session_state.usuario_logado or {}
     nome = usuario_atual.get("nome_completo") or usuario_atual.get("usuario") or "Usuário"
@@ -146,12 +292,32 @@ def exibir_central_indicadores():
                 destino = gerar_url_canal_vermelho() if indicador["url"] == "CANAL_VERMELHO" else indicador["url"]
                 titulo = indicador["titulo"]
                 icone = indicador["icone"]
-                card_html = f"""<a class="indicador-card-link" href="{destino}" target="_blank" rel="noopener noreferrer">
-                    <span class="indicador-card-acento"></span>
-                    <span class="indicador-card-simbolo" aria-hidden="true">{icone}</span>
-                    <span class="indicador-card-titulo">{titulo}</span>
-                </a>"""
-                st.markdown(card_html, unsafe_allow_html=True)
+                st.markdown(
+                    f'<div class="indicador-card-conteudo"><span class="indicador-card-simbolo" aria-hidden="true">{icone}</span>'
+                    f'<span class="indicador-card-titulo">{titulo}</span></div>',
+                    unsafe_allow_html=True,
+                )
+                if st.button(
+                    f"Abrir {titulo}",
+                    key=f"abrir_indicador_{area}_{inicio}_{titulo}",
+                    use_container_width=True,
+                    type="secondary",
+                ):
+                    registrar_acesso_indicador(usuario_atual, area, titulo, destino)
+                    st.session_state.indicador_destino_pendente = destino
+                    st.session_state.indicador_titulo_pendente = titulo
+                    st.rerun()
+
+    destino_pendente = st.session_state.pop("indicador_destino_pendente", None)
+    titulo_pendente = st.session_state.pop("indicador_titulo_pendente", None)
+    if destino_pendente:
+        destino_js = json.dumps(destino_pendente)
+        components_html(
+            f"<script>window.parent.open({destino_js}, '_blank', 'noopener,noreferrer');</script>",
+            height=0,
+        )
+        st.success(f"Acesso ao indicador '{titulo_pendente}' registrado.")
+        st.link_button("Abrir indicador caso a nova aba não tenha sido exibida", destino_pendente, use_container_width=True)
 
 
 def iniciar_banco():
@@ -201,6 +367,22 @@ def iniciar_banco():
             administrador TEXT,
             criado_em TEXT NOT NULL
         );
+        CREATE TABLE IF NOT EXISTS acessos_indicadores (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            usuario_id INTEGER,
+            nome_completo TEXT,
+            usuario TEXT,
+            area TEXT NOT NULL,
+            indicador TEXT NOT NULL,
+            url TEXT NOT NULL,
+            acessado_em TEXT NOT NULL,
+            sessao_id TEXT,
+            FOREIGN KEY(usuario_id) REFERENCES usuarios(id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_acessos_indicadores_data
+            ON acessos_indicadores(acessado_em);
+        CREATE INDEX IF NOT EXISTS idx_acessos_indicadores_usuario
+            ON acessos_indicadores(usuario_id);
         """)
 
 
@@ -471,6 +653,28 @@ def importar_usuarios_json_manual(arquivo, administrador):
                 )
                 incluidos += 1
 
+        acessos_backup = dados.get("acessos_indicadores", []) if isinstance(dados, dict) else []
+        if isinstance(acessos_backup, list):
+            for acesso in acessos_backup:
+                if not isinstance(acesso, dict) or not acesso.get("indicador") or not acesso.get("acessado_em"):
+                    continue
+                duplicado_acesso = con.execute(
+                    """SELECT 1 FROM acessos_indicadores
+                       WHERE COALESCE(usuario_id,-1)=COALESCE(?,-1) AND indicador=? AND acessado_em=? AND COALESCE(sessao_id,'')=COALESCE(?,'')""",
+                    (acesso.get("usuario_id"), acesso.get("indicador"), acesso.get("acessado_em"), acesso.get("sessao_id")),
+                ).fetchone()
+                if not duplicado_acesso:
+                    con.execute(
+                        """INSERT INTO acessos_indicadores
+                           (usuario_id,nome_completo,usuario,area,indicador,url,acessado_em,sessao_id)
+                           VALUES(?,?,?,?,?,?,?,?)""",
+                        (
+                            acesso.get("usuario_id"), acesso.get("nome_completo"), acesso.get("usuario"),
+                            acesso.get("area") or "Não informada", acesso.get("indicador"), acesso.get("url") or "",
+                            acesso.get("acessado_em"), acesso.get("sessao_id"),
+                        ),
+                    )
+
         con.execute(
             "INSERT INTO auditoria(acao,referencia,administrador,criado_em) VALUES(?,?,?,?)",
             (
@@ -569,6 +773,9 @@ def exportar_backup_completo_usuarios():
             "tipo": "BACKUP_COMPLETO_USUARIOS_CENTRAL",
             "versao": 29,
             "usuarios": [dict(linha) for linha in linhas],
+            "acessos_indicadores": [dict(linha) for linha in conectar().execute(
+                "SELECT usuario_id,nome_completo,usuario,area,indicador,url,acessado_em,sessao_id FROM acessos_indicadores ORDER BY id"
+            ).fetchall()],
             "atualizado_em": agora_iso(),
         },
         ensure_ascii=False,
@@ -697,6 +904,13 @@ html,body,.stApp,[data-testid="stAppViewContainer"]{max-width:100%!important;ove
  .st-key-modo [data-testid="stSegmentedControl"] button,.st-key-modo [data-testid="stSegmentedControl"] label{width:100%!important;min-width:0!important;max-width:none!important;min-height:44px!important;height:auto!important;margin:0!important;padding:7px 5px!important;border:1px solid #c8c8c8!important;border-radius:10px!important;background:#fff!important}
  .st-key-modo [data-testid="stSegmentedControl"] button *,.st-key-modo [data-testid="stSegmentedControl"] label *{font-size:.78rem!important;line-height:1.12!important;white-space:normal!important;text-align:center!important}
 }
+
+/* Cards funcionais com registro de acesso */
+.indicador-card-conteudo{position:relative;display:flex;min-height:150px;padding:22px 16px 16px;border:1px solid rgba(218,41,28,.14);border-radius:22px 22px 8px 8px;background:linear-gradient(145deg,#fff,#fff6f3);box-shadow:0 8px 20px rgba(79,20,20,.09);flex-direction:column;align-items:center;justify-content:center;text-align:center}
+.indicador-card-conteudo:before{content:"";position:absolute;left:0;top:0;width:100%;height:5px;background:linear-gradient(90deg,#b51f25,#da291c 50%,#f47b45)}
+.indicador-card-conteudo + div[data-testid="stButton"] button{border-radius:8px 8px 14px 14px!important;border:1px solid rgba(218,41,28,.25)!important;background:#fff!important;color:#b51f25!important;font-weight:800!important}
+.indicador-card-conteudo + div[data-testid="stButton"] button:hover{background:#fff1f1!important;border-color:#da291c!important}
+@media(max-width:580px){.indicador-card-conteudo{min-height:120px;padding:16px 12px 12px;border-radius:17px 17px 8px 8px}}
 </style>
 <div class="portal-head portal-head-base">
   <div class="portal-brand">
@@ -726,9 +940,10 @@ if st.session_state.admin_logado:
     st.caption("Datas e horários apresentados no fuso de Brasília (America/Sao_Paulo).")
     st.write("")
 
-    aba_pendencias, aba_usuarios, aba_importacao = st.tabs([
+    aba_pendencias, aba_usuarios, aba_acessos, aba_importacao = st.tabs([
         f"Solicitações pendentes ({len(pendentes)})",
         f"Usuários cadastrados ({len(usuarios_admin)})",
+        "Acessos aos indicadores",
         "Restaurar backup",
     ])
 
@@ -833,6 +1048,9 @@ if st.session_state.admin_logado:
                 if acao2.button("Excluir definitivamente", key=f"excluir_{usuario_item['id']}", disabled=not confirmar_exclusao, use_container_width=True):
                     excluir_usuario(usuario_item["id"], st.session_state.admin_logado)
                     st.rerun()
+
+    with aba_acessos:
+        exibir_relatorio_acessos(usuarios_admin)
 
     with aba_importacao:
         st.subheader("Restaurar backup de usuários")
