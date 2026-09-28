@@ -133,6 +133,65 @@ def registrar_acesso_indicador(usuario_atual, area, indicador, url):
         )
 
 
+def editar_acesso_indicador(acesso_id, usuario_id, area, indicador, acessado_em_local, administrador):
+    area = str(area or "").strip()
+    indicador = str(indicador or "").strip()
+    if not area or not indicador:
+        raise ValueError("Informe a área e o indicador.")
+    if acessado_em_local.tzinfo is None:
+        acessado_em_local = acessado_em_local.replace(tzinfo=FUSO_BRASILIA)
+    acessado_em_utc = acessado_em_local.astimezone(timezone.utc).isoformat()
+
+    with conectar() as con:
+        atual = con.execute("SELECT * FROM acessos_indicadores WHERE id=?", (acesso_id,)).fetchone()
+        if not atual:
+            raise ValueError("Registro de acesso não localizado.")
+        usuario_registro = None
+        if usuario_id:
+            usuario_registro = con.execute(
+                "SELECT id,nome_completo,usuario FROM usuarios WHERE id=?", (usuario_id,)
+            ).fetchone()
+            if not usuario_registro:
+                raise ValueError("Usuário selecionado não foi localizado.")
+        referencia = json.dumps(
+            {"acesso_id": acesso_id, "antes": dict(atual), "depois": {
+                "usuario_id": usuario_id, "area": area, "indicador": indicador,
+                "acessado_em": acessado_em_utc,
+            }},
+            ensure_ascii=False,
+        )
+        con.execute(
+            """UPDATE acessos_indicadores
+               SET usuario_id=?,nome_completo=?,usuario=?,area=?,indicador=?,acessado_em=?
+               WHERE id=?""",
+            (
+                usuario_id,
+                usuario_registro["nome_completo"] if usuario_registro else atual["nome_completo"],
+                usuario_registro["usuario"] if usuario_registro else atual["usuario"],
+                area,
+                indicador,
+                acessado_em_utc,
+                acesso_id,
+            ),
+        )
+        con.execute(
+            "INSERT INTO auditoria(acao,referencia,administrador,criado_em) VALUES(?,?,?,?)",
+            ("EDITAR_ACESSO_INDICADOR", referencia, administrador, agora_iso()),
+        )
+
+
+def excluir_acesso_indicador(acesso_id, administrador):
+    with conectar() as con:
+        atual = con.execute("SELECT * FROM acessos_indicadores WHERE id=?", (acesso_id,)).fetchone()
+        if not atual:
+            raise ValueError("Registro de acesso não localizado.")
+        con.execute("DELETE FROM acessos_indicadores WHERE id=?", (acesso_id,))
+        con.execute(
+            "INSERT INTO auditoria(acao,referencia,administrador,criado_em) VALUES(?,?,?,?)",
+            ("EXCLUIR_ACESSO_INDICADOR", json.dumps(dict(atual), ensure_ascii=False), administrador, agora_iso()),
+        )
+
+
 def consultar_acessos_indicadores(data_inicial, data_final, area=None, indicador=None, usuario_id=None):
     inicio_local = datetime.combine(data_inicial, datetime.min.time(), tzinfo=FUSO_BRASILIA)
     fim_local = datetime.combine(data_final, datetime.max.time(), tzinfo=FUSO_BRASILIA)
@@ -230,6 +289,80 @@ def exibir_relatorio_acessos(usuarios_admin):
             hide_index=True,
         )
 
+    if acessos:
+        with st.expander("Editar ou excluir registros de acesso", expanded=False):
+            st.caption(
+                "Use esta manutenção somente para corrigir ou remover registros de teste. "
+                "Toda edição ou exclusão fica registrada na auditoria administrativa."
+            )
+            opcoes_acesso = {
+                f"#{item['id']} | {data_hora_brasilia(item['acessado_em'])} | "
+                f"{item.get('nome_completo') or item.get('usuario') or 'Cadastro legado'} | {item['indicador']}": item
+                for item in acessos
+            }
+            acesso_rotulo = st.selectbox(
+                "Registro de acesso", list(opcoes_acesso.keys()), key="manutencao_acesso_selecionado"
+            )
+            acesso_selecionado = opcoes_acesso[acesso_rotulo]
+            usuarios_por_rotulo = {
+                f"{u.get('nome_completo') or u.get('usuario') or 'Cadastro legado'} | {u.get('usuario') or 'legado'}": u["id"]
+                for u in usuarios_admin
+            }
+            rotulo_atual = next(
+                (rotulo for rotulo, uid in usuarios_por_rotulo.items() if uid == acesso_selecionado.get("usuario_id")),
+                next(iter(usuarios_por_rotulo), None),
+            )
+            with st.form("editar_registro_acesso"):
+                usuario_edicao = st.selectbox(
+                    "Usuário", list(usuarios_por_rotulo.keys()),
+                    index=list(usuarios_por_rotulo.keys()).index(rotulo_atual) if rotulo_atual else 0,
+                )
+                area_edicao = st.selectbox(
+                    "Área", list(INDICADORES.keys()),
+                    index=list(INDICADORES.keys()).index(acesso_selecionado["area"])
+                    if acesso_selecionado["area"] in INDICADORES else 0,
+                )
+                indicadores_area = [item["titulo"] for item in INDICADORES.get(area_edicao, [])]
+                if acesso_selecionado["indicador"] not in indicadores_area:
+                    indicadores_area = [acesso_selecionado["indicador"]] + indicadores_area
+                indicador_edicao = st.selectbox("Indicador", indicadores_area)
+                data_hora_atual = datetime.fromisoformat(
+                    str(acesso_selecionado["acessado_em"]).replace("Z", "+00:00")
+                ).astimezone(FUSO_BRASILIA)
+                data_edicao = st.date_input("Data do acesso", value=data_hora_atual.date())
+                hora_edicao = st.time_input("Hora do acesso", value=data_hora_atual.time().replace(microsecond=0))
+                confirmar_edicao_acesso = st.checkbox("Confirmo a correção deste registro.")
+                salvar_acesso = st.form_submit_button("Salvar correção", type="primary", use_container_width=True)
+            if salvar_acesso:
+                if not confirmar_edicao_acesso:
+                    st.warning("Marque a confirmação antes de salvar.")
+                else:
+                    try:
+                        editar_acesso_indicador(
+                            acesso_selecionado["id"], usuarios_por_rotulo[usuario_edicao],
+                            area_edicao, indicador_edicao,
+                            datetime.combine(data_edicao, hora_edicao, tzinfo=FUSO_BRASILIA),
+                            st.session_state.admin_logado,
+                        )
+                        st.success("Registro de acesso atualizado.")
+                        st.rerun()
+                    except ValueError as exc:
+                        st.error(str(exc))
+
+            confirmar_exclusao_acesso = st.checkbox(
+                "Confirmo a exclusão definitiva deste registro.", key="confirmar_exclusao_acesso"
+            )
+            if st.button(
+                "Excluir registro de acesso", use_container_width=True,
+                disabled=not confirmar_exclusao_acesso, key="excluir_registro_acesso",
+            ):
+                try:
+                    excluir_acesso_indicador(acesso_selecionado["id"], st.session_state.admin_logado)
+                    st.success("Registro de acesso excluído.")
+                    st.rerun()
+                except ValueError as exc:
+                    st.error(str(exc))
+
     ids_com_acesso = {x["usuario_id"] for x in acessos if x["usuario_id"] is not None}
     sem_acesso = [
         {
@@ -292,32 +425,23 @@ def exibir_central_indicadores():
                 destino = gerar_url_canal_vermelho() if indicador["url"] == "CANAL_VERMELHO" else indicador["url"]
                 titulo = indicador["titulo"]
                 icone = indicador["icone"]
-                st.markdown(
-                    f'<div class="indicador-card-conteudo"><span class="indicador-card-simbolo" aria-hidden="true">{icone}</span>'
-                    f'<span class="indicador-card-titulo">{titulo}</span></div>',
-                    unsafe_allow_html=True,
-                )
                 if st.button(
-                    f"Abrir {titulo}",
-                    key=f"abrir_indicador_{area}_{inicio}_{titulo}",
+                    f"{icone}\n\n{titulo}",
+                    key=f"card_indicador_{area}_{inicio}_{titulo}",
                     use_container_width=True,
                     type="secondary",
                 ):
                     registrar_acesso_indicador(usuario_atual, area, titulo, destino)
                     st.session_state.indicador_destino_pendente = destino
-                    st.session_state.indicador_titulo_pendente = titulo
                     st.rerun()
 
     destino_pendente = st.session_state.pop("indicador_destino_pendente", None)
-    titulo_pendente = st.session_state.pop("indicador_titulo_pendente", None)
     if destino_pendente:
         destino_js = json.dumps(destino_pendente)
         components_html(
             f"<script>window.parent.open({destino_js}, '_blank', 'noopener,noreferrer');</script>",
             height=0,
         )
-        st.success(f"Acesso ao indicador '{titulo_pendente}' registrado.")
-        st.link_button("Abrir indicador caso a nova aba não tenha sido exibida", destino_pendente, use_container_width=True)
 
 
 def iniciar_banco():
@@ -911,6 +1035,13 @@ html,body,.stApp,[data-testid="stAppViewContainer"]{max-width:100%!important;ove
 .indicador-card-conteudo + div[data-testid="stButton"] button{border-radius:8px 8px 14px 14px!important;border:1px solid rgba(218,41,28,.25)!important;background:#fff!important;color:#b51f25!important;font-weight:800!important}
 .indicador-card-conteudo + div[data-testid="stButton"] button:hover{background:#fff1f1!important;border-color:#da291c!important}
 @media(max-width:580px){.indicador-card-conteudo{min-height:120px;padding:16px 12px 12px;border-radius:17px 17px 8px 8px}}
+
+/* Card funcional único, sem botão Abrir separado */
+[class*="st-key-card_indicador_"] button{min-height:216px!important;width:100%!important;padding:24px 16px!important;border:1px solid rgba(218,41,28,.16)!important;border-top:5px solid #ed5b35!important;border-radius:22px!important;background:linear-gradient(145deg,#fff,#fff6f3)!important;box-shadow:0 10px 28px rgba(79,20,20,.10)!important;color:#202231!important;white-space:pre-line!important;transition:transform .2s ease,box-shadow .2s ease!important}
+[class*="st-key-card_indicador_"] button p{font-size:1rem!important;line-height:1.55!important;font-weight:850!important;white-space:pre-line!important;text-align:center!important}
+[class*="st-key-card_indicador_"] button p:first-line{font-size:2rem!important;line-height:2!important}
+[class*="st-key-card_indicador_"] button:hover{transform:translateY(-5px)!important;border-color:#da291c!important;box-shadow:0 18px 36px rgba(122,25,25,.18)!important;background:linear-gradient(145deg,#fff,#fff1ed)!important}
+@media(max-width:580px){[class*="st-key-card_indicador_"] button{min-height:150px!important;padding:18px 10px!important;border-radius:17px!important}[class*="st-key-card_indicador_"] button p{font-size:.88rem!important}}
 </style>
 <div class="portal-head portal-head-base">
   <div class="portal-brand">
@@ -944,7 +1075,7 @@ if st.session_state.admin_logado:
         f"Solicitações pendentes ({len(pendentes)})",
         f"Usuários cadastrados ({len(usuarios_admin)})",
         "Acessos aos indicadores",
-        "Restaurar backup",
+        "Backup de usuários",
     ])
 
     with aba_pendencias:
@@ -1053,7 +1184,16 @@ if st.session_state.admin_logado:
         exibir_relatorio_acessos(usuarios_admin)
 
     with aba_importacao:
-        st.subheader("Restaurar backup de usuários")
+        st.subheader("Backup de usuários")
+        nome_backup = f"backup_usuarios_completo_{datetime.now(FUSO_BRASILIA).strftime('%Y%m%d_%H%M%S')}.json"
+        st.download_button(
+            "Exportar backup completo de usuários",
+            exportar_backup_completo_usuarios(),
+            nome_backup,
+            "application/json",
+            use_container_width=True,
+        )
+        st.divider()
         st.info(
             "Selecione o backup JSON completo. A restauração inclui usuários novos e atualiza os já existentes, "
             "preservando nomes, credenciais, status, perfil e datas administrativas."
@@ -1126,14 +1266,7 @@ if st.session_state.admin_logado:
             except ValueError as exc:
                 st.error(str(exc))
 
-    nome_backup = f"backup_usuarios_completo_{datetime.now(FUSO_BRASILIA).strftime('%Y%m%d_%H%M%S')}.json"
-    st.download_button(
-        "Exportar backup completo de usuários",
-        exportar_backup_completo_usuarios(),
-        nome_backup,
-        "application/json",
-        use_container_width=True,
-    )
+
     if st.button("Sair da administração"):
         st.session_state.admin_logado = None
         st.rerun()
