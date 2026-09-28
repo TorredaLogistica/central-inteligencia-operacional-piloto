@@ -563,7 +563,6 @@ Você já pode acessar a Central utilizando seu usuário, e-mail corporativo e a
 
 Em caso de dificuldade no acesso, entre em contato com a equipe responsável.
 
-Atenciosamente,
 Central de Inteligência Operacional"""
     elif tipo == "CADASTRO":
         assunto = "Central de Inteligência Operacional | Solicitação de cadastro"
@@ -576,7 +575,6 @@ Observação: {observacao or 'Não informada'}
 
 Caso necessite de esclarecimentos ou de uma nova análise, entre em contato com a equipe responsável.
 
-Atenciosamente,
 Central de Inteligência Operacional"""
     elif aprovado:
         assunto = "Central de Inteligência Operacional | Redefinição de senha aprovada"
@@ -588,7 +586,6 @@ A nova senha cadastrada na solicitação já está ativa e poderá ser utilizada
 
 Por segurança, nunca compartilhe sua senha com outras pessoas.
 
-Atenciosamente,
 Central de Inteligência Operacional"""
     else:
         assunto = "Central de Inteligência Operacional | Solicitação de redefinição de senha"
@@ -601,7 +598,6 @@ Observação: {observacao or 'Não informada'}
 
 Caso não reconheça essa solicitação ou precise de uma nova análise, entre em contato com a equipe responsável.
 
-Atenciosamente,
 Central de Inteligência Operacional"""
 
     return (
