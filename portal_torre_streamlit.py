@@ -8,9 +8,13 @@ from urllib.parse import quote
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 from pathlib import Path
+from io import BytesIO
 
 import streamlit as st
 import pandas as pd
+from openpyxl import Workbook
+from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
+from openpyxl.utils import get_column_letter
 from streamlit.components.v1 import html as components_html
 
 DB_PATH = Path(os.getenv("TORRE_DB_PATH", "torre_usuarios.db"))
@@ -568,6 +572,80 @@ def listar_usuarios():
         ).fetchall()]
 
 
+def gerar_relacao_usuarios_xlsx(usuarios):
+    colunas = [
+        "Nome",
+        "Nome de usuário",
+        "E-mail",
+        "Data da solicitação",
+        "Data da aprovação",
+        "Situação",
+        "E-mail enviado",
+        "Data do envio",
+    ]
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Usuarios"
+    ws.sheet_view.showGridLines = False
+    ws.freeze_panes = "A2"
+
+    preenchimento_cabecalho = PatternFill("solid", fgColor="C00000")
+    fonte_cabecalho = Font(color="FFFFFF", bold=True, size=11)
+    borda_inferior = Border(bottom=Side(style="thin", color="D9D9D9"))
+
+    for coluna, titulo in enumerate(colunas, start=1):
+        celula = ws.cell(row=1, column=coluna, value=titulo)
+        celula.fill = preenchimento_cabecalho
+        celula.font = fonte_cabecalho
+        celula.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+    ws.row_dimensions[1].height = 32
+
+    for linha, item in enumerate(usuarios, start=2):
+        situacao = "Aprovado" if item.get("ativo") else "Desativado"
+        valores = [
+            item.get("nome_completo") or "Cadastro legado",
+            str(item.get("usuario") or "Não disponível"),
+            item.get("email") or "Não disponível",
+            data_hora_brasilia(item.get("criado_em")),
+            data_hora_brasilia(item.get("aprovado_em")),
+            situacao,
+            "Não disponível",
+            "-",
+        ]
+        for coluna, valor in enumerate(valores, start=1):
+            celula = ws.cell(row=linha, column=coluna, value=valor)
+            celula.alignment = Alignment(vertical="center", wrap_text=True)
+            celula.border = borda_inferior
+            if coluna in (2, 3):
+                celula.number_format = "@"
+        ws.row_dimensions[linha].height = 28
+
+    larguras = {
+        "A": 35,
+        "B": 24,
+        "C": 36,
+        "D": 24,
+        "E": 24,
+        "F": 18,
+        "G": 18,
+        "H": 22,
+    }
+    for coluna, largura in larguras.items():
+        ws.column_dimensions[coluna].width = largura
+
+    ws.auto_filter.ref = f"A1:H{max(ws.max_row, 1)}"
+    ws.sheet_properties.pageSetUpPr.fitToPage = True
+    ws.page_setup.fitToWidth = 1
+    ws.page_setup.fitToHeight = 0
+    ws.print_title_rows = "1:1"
+
+    arquivo = BytesIO()
+    wb.save(arquivo)
+    arquivo.seek(0)
+    return arquivo.getvalue()
+
+
 def editar_cadastro_usuario(usuario_id, nome_completo, usuario, email, administrador):
     nome_completo = str(nome_completo or "").strip()
     usuario = normalizar_usuario(usuario)
@@ -1123,6 +1201,20 @@ if st.session_state.admin_logado:
                     st.rerun()
 
     with aba_usuarios:
+        nome_relacao_usuarios = f"Relacao_Usuarios_Torre_{datetime.now(FUSO_BRASILIA).strftime('%Y-%m-%d')}.xlsx"
+        st.download_button(
+            "Baixar relação de usuários (.xlsx)",
+            data=gerar_relacao_usuarios_xlsx(usuarios_admin),
+            file_name=nome_relacao_usuarios,
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            use_container_width=True,
+            key="baixar_relacao_usuarios_xlsx",
+        )
+        st.caption(
+            "A exportação segue o modelo da relação de usuários e inclui todos os cadastros atuais. "
+            "Como o portal não registra o envio de e-mails, esses dois campos são exportados como não disponíveis."
+        )
+        st.divider()
         if not usuarios_admin:
             st.info("Nenhum usuário aprovado foi cadastrado ainda.")
         for usuario_item in usuarios_admin:
