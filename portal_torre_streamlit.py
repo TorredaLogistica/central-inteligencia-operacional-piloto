@@ -493,8 +493,6 @@ def criar_solicitacao_cadastro(nome, usuario, email, senha):
         raise ValueError("Revise o usuário, o e-mail corporativo e a senha.")
     nome_hash, email_hash = sha256(usuario.lower()), sha256(email)
     senha_hash, salt = gerar_hash_senha(senha)
-    token = "-".join([secrets.token_hex(2).upper() for _ in range(4)])
-    token_hash = sha256(token.replace("-", ""))
     with conectar() as con:
         existe = con.execute("SELECT 1 FROM usuarios WHERE nome_hash=? OR email_hash=?", (nome_hash, email_hash)).fetchone()
         pendente = con.execute("SELECT 1 FROM solicitacoes WHERE status='PENDENTE' AND (nome_hash=? OR email_hash=?)", (nome_hash, email_hash)).fetchone()
@@ -503,8 +501,8 @@ def criar_solicitacao_cadastro(nome, usuario, email, senha):
         con.execute("""INSERT INTO solicitacoes
             (tipo,nome_completo,usuario,email,nome_hash,email_hash,senha_hash_pendente,salt_pendente,iteracoes,codigo_dispositivo_hash,status,criado_em)
             VALUES('CADASTRO',?,?,?,?,?,?,?,?,?,'PENDENTE',?)""",
-            (nome.strip(), usuario, email, nome_hash, email_hash, senha_hash, salt, ITERACOES, token_hash, agora_iso()))
-    return token
+            (nome.strip(), usuario, email, nome_hash, email_hash, senha_hash, salt, ITERACOES, None, agora_iso()))
+    return True
 
 
 def criar_solicitacao_senha(usuario, email, nova_senha):
@@ -1427,10 +1425,11 @@ elif st.session_state.modo == "Solicitar cadastro":
         try:
             if senha != confirmar:
                 raise ValueError("A confirmação da senha não corresponde.")
-            token = criar_solicitacao_cadastro(nome, usuario, email, senha)
-            st.success("Solicitação registrada. O acesso será liberado somente após aprovação do administrador.")
-            st.code(token, language=None)
-            st.caption("Guarde este código para ativar um novo navegador.")
+            criar_solicitacao_cadastro(nome, usuario, email, senha)
+            st.success(
+                "Solicitação registrada. O acesso será liberado somente após aprovação do administrador, "
+                "e o retorno ocorrerá por e-mail em até 24 horas úteis."
+            )
         except ValueError as e:
             st.error(str(e))
 
@@ -1448,7 +1447,10 @@ elif st.session_state.modo == "Esqueci minha senha":
         else:
             try:
                 criar_solicitacao_senha(usuario, email, senha)
-                st.success("Se os dados corresponderem a um cadastro ativo, a solicitação será encaminhada para aprovação.")
+                st.success(
+                    "Se os dados corresponderem a um cadastro ativo, a solicitação será encaminhada para aprovação, "
+                    "e o retorno ocorrerá por e-mail em até 24 horas úteis."
+                )
             except ValueError as e:
                 st.error(str(e))
 
