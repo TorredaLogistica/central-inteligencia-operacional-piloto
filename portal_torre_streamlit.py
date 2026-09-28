@@ -133,63 +133,32 @@ def registrar_acesso_indicador(usuario_atual, area, indicador, url):
         )
 
 
-def editar_acesso_indicador(acesso_id, usuario_id, area, indicador, acessado_em_local, administrador):
-    area = str(area or "").strip()
-    indicador = str(indicador or "").strip()
-    if not area or not indicador:
-        raise ValueError("Informe a área e o indicador.")
-    if acessado_em_local.tzinfo is None:
-        acessado_em_local = acessado_em_local.replace(tzinfo=FUSO_BRASILIA)
-    acessado_em_utc = acessado_em_local.astimezone(timezone.utc).isoformat()
-
+def excluir_acessos_indicadores(ids_acessos, administrador, motivo="EXCLUSAO_SELECIONADA"):
+    ids_validos = sorted({int(acesso_id) for acesso_id in ids_acessos if acesso_id is not None})
+    if not ids_validos:
+        return 0
+    placeholders = ",".join("?" for _ in ids_validos)
     with conectar() as con:
-        atual = con.execute("SELECT * FROM acessos_indicadores WHERE id=?", (acesso_id,)).fetchone()
-        if not atual:
-            raise ValueError("Registro de acesso não localizado.")
-        usuario_registro = None
-        if usuario_id:
-            usuario_registro = con.execute(
-                "SELECT id,nome_completo,usuario FROM usuarios WHERE id=?", (usuario_id,)
-            ).fetchone()
-            if not usuario_registro:
-                raise ValueError("Usuário selecionado não foi localizado.")
+        registros = con.execute(
+            f"SELECT * FROM acessos_indicadores WHERE id IN ({placeholders})",
+            ids_validos,
+        ).fetchall()
+        if not registros:
+            return 0
         referencia = json.dumps(
-            {"acesso_id": acesso_id, "antes": dict(atual), "depois": {
-                "usuario_id": usuario_id, "area": area, "indicador": indicador,
-                "acessado_em": acessado_em_utc,
-            }},
+            {
+                "motivo": motivo,
+                "quantidade": len(registros),
+                "ids": [registro["id"] for registro in registros],
+            },
             ensure_ascii=False,
         )
-        con.execute(
-            """UPDATE acessos_indicadores
-               SET usuario_id=?,nome_completo=?,usuario=?,area=?,indicador=?,acessado_em=?
-               WHERE id=?""",
-            (
-                usuario_id,
-                usuario_registro["nome_completo"] if usuario_registro else atual["nome_completo"],
-                usuario_registro["usuario"] if usuario_registro else atual["usuario"],
-                area,
-                indicador,
-                acessado_em_utc,
-                acesso_id,
-            ),
-        )
+        con.execute(f"DELETE FROM acessos_indicadores WHERE id IN ({placeholders})", ids_validos)
         con.execute(
             "INSERT INTO auditoria(acao,referencia,administrador,criado_em) VALUES(?,?,?,?)",
-            ("EDITAR_ACESSO_INDICADOR", referencia, administrador, agora_iso()),
+            ("EXCLUIR_ACESSOS_INDICADORES", referencia, administrador, agora_iso()),
         )
-
-
-def excluir_acesso_indicador(acesso_id, administrador):
-    with conectar() as con:
-        atual = con.execute("SELECT * FROM acessos_indicadores WHERE id=?", (acesso_id,)).fetchone()
-        if not atual:
-            raise ValueError("Registro de acesso não localizado.")
-        con.execute("DELETE FROM acessos_indicadores WHERE id=?", (acesso_id,))
-        con.execute(
-            "INSERT INTO auditoria(acao,referencia,administrador,criado_em) VALUES(?,?,?,?)",
-            ("EXCLUIR_ACESSO_INDICADOR", json.dumps(dict(atual), ensure_ascii=False), administrador, agora_iso()),
-        )
+    return len(registros)
 
 
 def consultar_acessos_indicadores(data_inicial, data_final, area=None, indicador=None, usuario_id=None):
@@ -266,13 +235,24 @@ def exibir_relatorio_acessos(usuarios_admin):
         df["Nome"] = df["nome_completo"].fillna("Cadastro legado")
         df["Usuário"] = df["usuario"].fillna("Não disponível")
         st.markdown("#### Detalhamento dos acessos")
-        st.dataframe(
-            df[["Data e hora", "Nome", "Usuário", "area", "indicador"]].rename(
-                columns={"area": "Área", "indicador": "Indicador"}
-            ),
+        tabela_exclusao = df[["id", "Data e hora", "Nome", "Usuário", "area", "indicador"]].rename(
+            columns={"area": "Área", "indicador": "Indicador"}
+        )
+        tabela_exclusao.insert(0, "Excluir", False)
+        tabela_editada = st.data_editor(
+            tabela_exclusao,
             use_container_width=True,
             hide_index=True,
+            disabled=["id", "Data e hora", "Nome", "Usuário", "Área", "Indicador"],
+            column_config={
+                "Excluir": st.column_config.CheckboxColumn(
+                    "Selecionar", help="Marque os registros que devem ser excluídos."
+                ),
+                "id": None,
+            },
+            key="grade_exclusao_acessos",
         )
+        ids_selecionados = tabela_editada.loc[tabela_editada["Excluir"], "id"].astype(int).tolist()
 
         por_indicador = (
             df.groupby(["area", "indicador"], dropna=False)
@@ -290,78 +270,49 @@ def exibir_relatorio_acessos(usuarios_admin):
         )
 
     if acessos:
-        with st.expander("Editar ou excluir registros de acesso", expanded=False):
-            st.caption(
-                "Use esta manutenção somente para corrigir ou remover registros de teste. "
-                "Toda edição ou exclusão fica registrada na auditoria administrativa."
-            )
-            opcoes_acesso = {
-                f"#{item['id']} | {data_hora_brasilia(item['acessado_em'])} | "
-                f"{item.get('nome_completo') or item.get('usuario') or 'Cadastro legado'} | {item['indicador']}": item
-                for item in acessos
-            }
-            acesso_rotulo = st.selectbox(
-                "Registro de acesso", list(opcoes_acesso.keys()), key="manutencao_acesso_selecionado"
-            )
-            acesso_selecionado = opcoes_acesso[acesso_rotulo]
-            usuarios_por_rotulo = {
-                f"{u.get('nome_completo') or u.get('usuario') or 'Cadastro legado'} | {u.get('usuario') or 'legado'}": u["id"]
-                for u in usuarios_admin
-            }
-            rotulo_atual = next(
-                (rotulo for rotulo, uid in usuarios_por_rotulo.items() if uid == acesso_selecionado.get("usuario_id")),
-                next(iter(usuarios_por_rotulo), None),
-            )
-            with st.form("editar_registro_acesso"):
-                usuario_edicao = st.selectbox(
-                    "Usuário", list(usuarios_por_rotulo.keys()),
-                    index=list(usuarios_por_rotulo.keys()).index(rotulo_atual) if rotulo_atual else 0,
-                )
-                area_edicao = st.selectbox(
-                    "Área", list(INDICADORES.keys()),
-                    index=list(INDICADORES.keys()).index(acesso_selecionado["area"])
-                    if acesso_selecionado["area"] in INDICADORES else 0,
-                )
-                indicadores_area = [item["titulo"] for item in INDICADORES.get(area_edicao, [])]
-                if acesso_selecionado["indicador"] not in indicadores_area:
-                    indicadores_area = [acesso_selecionado["indicador"]] + indicadores_area
-                indicador_edicao = st.selectbox("Indicador", indicadores_area)
-                data_hora_atual = datetime.fromisoformat(
-                    str(acesso_selecionado["acessado_em"]).replace("Z", "+00:00")
-                ).astimezone(FUSO_BRASILIA)
-                data_edicao = st.date_input("Data do acesso", value=data_hora_atual.date())
-                hora_edicao = st.time_input("Hora do acesso", value=data_hora_atual.time().replace(microsecond=0))
-                confirmar_edicao_acesso = st.checkbox("Confirmo a correção deste registro.")
-                salvar_acesso = st.form_submit_button("Salvar correção", type="primary", use_container_width=True)
-            if salvar_acesso:
-                if not confirmar_edicao_acesso:
-                    st.warning("Marque a confirmação antes de salvar.")
-                else:
-                    try:
-                        editar_acesso_indicador(
-                            acesso_selecionado["id"], usuarios_por_rotulo[usuario_edicao],
-                            area_edicao, indicador_edicao,
-                            datetime.combine(data_edicao, hora_edicao, tzinfo=FUSO_BRASILIA),
-                            st.session_state.admin_logado,
-                        )
-                        st.success("Registro de acesso atualizado.")
-                        st.rerun()
-                    except ValueError as exc:
-                        st.error(str(exc))
-
-            confirmar_exclusao_acesso = st.checkbox(
-                "Confirmo a exclusão definitiva deste registro.", key="confirmar_exclusao_acesso"
+        st.markdown("#### Exclusão de registros")
+        st.caption(
+            "Marque os registros desejados na coluna Selecionar ou utilize a exclusão de todos os acessos "
+            "retornados pelos filtros atuais. As exclusões ficam registradas na auditoria administrativa."
+        )
+        excluir_col1, excluir_col2 = st.columns(2)
+        with excluir_col1:
+            confirmar_selecionados = st.checkbox(
+                f"Confirmo a exclusão dos registros selecionados ({len(ids_selecionados)}).",
+                key="confirmar_exclusao_acessos_selecionados",
             )
             if st.button(
-                "Excluir registro de acesso", use_container_width=True,
-                disabled=not confirmar_exclusao_acesso, key="excluir_registro_acesso",
+                "Excluir registros selecionados",
+                use_container_width=True,
+                disabled=not ids_selecionados or not confirmar_selecionados,
+                key="excluir_acessos_selecionados",
             ):
-                try:
-                    excluir_acesso_indicador(acesso_selecionado["id"], st.session_state.admin_logado)
-                    st.success("Registro de acesso excluído.")
-                    st.rerun()
-                except ValueError as exc:
-                    st.error(str(exc))
+                quantidade = excluir_acessos_indicadores(
+                    ids_selecionados,
+                    st.session_state.admin_logado,
+                    motivo="EXCLUSAO_SELECIONADA",
+                )
+                st.success(f"{quantidade} registro(s) de acesso excluído(s).")
+                st.rerun()
+        with excluir_col2:
+            ids_filtrados = [int(item["id"]) for item in acessos]
+            confirmar_periodo = st.checkbox(
+                f"Confirmo a exclusão de todos os acessos filtrados ({len(ids_filtrados)}).",
+                key="confirmar_exclusao_todos_acessos_filtrados",
+            )
+            if st.button(
+                "Excluir todos os acessos filtrados",
+                use_container_width=True,
+                disabled=not confirmar_periodo,
+                key="excluir_todos_acessos_filtrados",
+            ):
+                quantidade = excluir_acessos_indicadores(
+                    ids_filtrados,
+                    st.session_state.admin_logado,
+                    motivo="EXCLUSAO_TOTAL_FILTROS",
+                )
+                st.success(f"{quantidade} registro(s) de acesso excluído(s).")
+                st.rerun()
 
     ids_com_acesso = {x["usuario_id"] for x in acessos if x["usuario_id"] is not None}
     sem_acesso = [
@@ -1042,6 +993,78 @@ html,body,.stApp,[data-testid="stAppViewContainer"]{max-width:100%!important;ove
 [class*="st-key-card_indicador_"] button p:first-line{font-size:2rem!important;line-height:2!important}
 [class*="st-key-card_indicador_"] button:hover{transform:translateY(-5px)!important;border-color:#da291c!important;box-shadow:0 18px 36px rgba(122,25,25,.18)!important;background:linear-gradient(145deg,#fff,#fff1ed)!important}
 @media(max-width:580px){[class*="st-key-card_indicador_"] button{min-height:150px!important;padding:18px 10px!important;border-radius:17px!important}[class*="st-key-card_indicador_"] button p{font-size:.88rem!important}}
+
+/* Cards mais estreitos, compactos e centralizados */
+div[data-testid="stHorizontalBlock"]:has([class*="st-key-card_indicador_"]){
+  width:min(100%,1480px)!important;
+  max-width:1480px!important;
+  margin-left:auto!important;
+  margin-right:auto!important;
+  gap:18px!important;
+  justify-content:center!important;
+}
+div[data-testid="stHorizontalBlock"]:has([class*="st-key-card_indicador_"])>div{
+  min-width:0!important;
+}
+[class*="st-key-card_indicador_"] button{
+  min-height:174px!important;
+  height:174px!important;
+  padding:18px 12px!important;
+  border-radius:18px!important;
+}
+[class*="st-key-card_indicador_"] button p{
+  font-size:.94rem!important;
+  line-height:1.35!important;
+}
+[class*="st-key-card_indicador_"] button p:first-line{
+  font-size:1.75rem!important;
+  line-height:1.65!important;
+}
+@media(max-width:1200px){
+  div[data-testid="stHorizontalBlock"]:has([class*="st-key-card_indicador_"]){
+    width:100%!important;
+    gap:12px!important;
+  }
+  [class*="st-key-card_indicador_"] button{
+    min-height:164px!important;
+    height:164px!important;
+    padding:16px 10px!important;
+  }
+  [class*="st-key-card_indicador_"] button p{font-size:.86rem!important}
+}
+@media(max-width:900px){
+  div[data-testid="stHorizontalBlock"]:has([class*="st-key-card_indicador_"]){
+    display:grid!important;
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+    gap:12px!important;
+  }
+  div[data-testid="stHorizontalBlock"]:has([class*="st-key-card_indicador_"])>div{
+    width:100%!important;
+    min-width:0!important;
+    max-width:none!important;
+    flex:none!important;
+  }
+  [class*="st-key-card_indicador_"] button{
+    min-height:150px!important;
+    height:150px!important;
+  }
+}
+@media(max-width:580px){
+  div[data-testid="stHorizontalBlock"]:has([class*="st-key-card_indicador_"]){
+    grid-template-columns:1fr!important;
+    gap:10px!important;
+  }
+  [class*="st-key-card_indicador_"] button{
+    min-height:126px!important;
+    height:126px!important;
+    padding:14px 10px!important;
+    border-radius:15px!important;
+  }
+  [class*="st-key-card_indicador_"] button p{
+    font-size:.86rem!important;
+    line-height:1.25!important;
+  }
+}
 </style>
 <div class="portal-head portal-head-base">
   <div class="portal-brand">
