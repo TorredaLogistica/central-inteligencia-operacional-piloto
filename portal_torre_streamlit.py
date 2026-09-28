@@ -575,13 +575,13 @@ def listar_usuarios():
 def gerar_relacao_usuarios_xlsx(usuarios):
     colunas = [
         "Nome",
-        "Nome de usuário",
+        "Usuário",
         "E-mail",
-        "Data da solicitação",
-        "Data da aprovação",
-        "Situação",
-        "E-mail enviado",
-        "Data do envio",
+        "Perfil",
+        "Status atual",
+        "Criado em",
+        "Aprovado em",
+        "Atualizado em",
     ]
 
     wb = Workbook()
@@ -602,16 +602,16 @@ def gerar_relacao_usuarios_xlsx(usuarios):
     ws.row_dimensions[1].height = 32
 
     for linha, item in enumerate(usuarios, start=2):
-        situacao = "Aprovado" if item.get("ativo") else "Desativado"
+        status_atual = "Ativo" if item.get("ativo") else "Desativado"
         valores = [
             item.get("nome_completo") or "Cadastro legado",
             str(item.get("usuario") or "Não disponível"),
             item.get("email") or "Não disponível",
-            data_hora_brasilia(item.get("criado_em")),
-            data_hora_brasilia(item.get("aprovado_em")),
-            situacao,
-            "Não disponível",
-            "-",
+            str(item.get("perfil") or "USUARIO").upper(),
+            status_atual,
+            data_hora_brasilia(item.get("criado_em")) if item.get("criado_em") else "-",
+            data_hora_brasilia(item.get("aprovado_em")) if item.get("aprovado_em") else "-",
+            data_hora_brasilia(item.get("atualizado_em")) if item.get("atualizado_em") else "-",
         ]
         for coluna, valor in enumerate(valores, start=1):
             celula = ws.cell(row=linha, column=coluna, value=valor)
@@ -625,11 +625,11 @@ def gerar_relacao_usuarios_xlsx(usuarios):
         "A": 35,
         "B": 24,
         "C": 36,
-        "D": 24,
-        "E": 24,
-        "F": 18,
-        "G": 18,
-        "H": 22,
+        "D": 18,
+        "E": 18,
+        "F": 24,
+        "G": 24,
+        "H": 24,
     }
     for coluna, largura in larguras.items():
         ws.column_dimensions[coluna].width = largura
@@ -1211,8 +1211,8 @@ if st.session_state.admin_logado:
             key="baixar_relacao_usuarios_xlsx",
         )
         st.caption(
-            "A exportação segue o modelo da relação de usuários e inclui todos os cadastros atuais. "
-            "Como o portal não registra o envio de e-mails, esses dois campos são exportados como não disponíveis."
+            "A exportação inclui todos os cadastros atuais com nome, usuário, e-mail, perfil, "
+            "status e datas de criação, aprovação e atualização."
         )
         st.divider()
         if not usuarios_admin:
