@@ -1,6 +1,7 @@
 import hashlib
 import hmac
 import json
+import html
 import os
 import secrets
 import sqlite3
@@ -26,8 +27,8 @@ FUSO_BRASILIA = ZoneInfo("America/Sao_Paulo")
 # Os títulos foram mantidos alinhados à Central HTML atual.
 INDICADORES = {
     "Armazenagem": [
-        {"titulo": "Chatbot Torre Logística", "url": "https://chatbot-logistica-e4cpfbcta3qyqchopsdjeg.streamlit.app/", "icone": "🤖", "periodicidade": "EM CONSTRUÇÂO", "ultima_atualizacao": ""},
-        {"titulo": "Separação e Faturamento", "url": "https://dashboard-slaseparacaofaturamento-mdnfzinkaebwzysne83ewp.streamlit.app/", "icone": "📊", "periodicidade": "Exporádica", "ultima_atualizacao": "27/09/2026"},
+        {"titulo": "Chatbot Torre Logística", "url": "https://chatbot-logistica-e4cpfbcta3qyqchopsdjeg.streamlit.app/", "icone": "🤖", "periodicidade": "A definir", "ultima_atualizacao": "-"},
+        {"titulo": "Separação e Faturamento", "url": "https://dashboard-slaseparacaofaturamento-mdnfzinkaebwzysne83ewp.streamlit.app/", "icone": "📊", "periodicidade": "A definir", "ultima_atualizacao": "-"},
         {"titulo": "Pedidos para LPs", "url": "https://pedidoslpsaas-y44bkbmcg4kon8fogbro34.streamlit.app/", "icone": "📦", "periodicidade": "A definir", "ultima_atualizacao": "-"},
         {"titulo": "Resultado do DRE", "url": "https://resultadodre-lk6rh4ahefeuwfhwrg2ioc.streamlit.app/", "icone": "💰", "periodicidade": "A definir", "ultima_atualizacao": "-"},
         {"titulo": "Valores dos EAs", "url": "https://valorestoques-eas-73bxfsks3rnoxjo44fuqm7.streamlit.app/", "icone": "📈", "periodicidade": "A definir", "ultima_atualizacao": "-"},
@@ -378,8 +379,18 @@ def exibir_central_indicadores():
                 periodicidade = indicador.get("periodicidade") or "A definir"
                 ultima_atualizacao = indicador.get("ultima_atualizacao") or "-"
                 rodape_atualizacao = f"{periodicidade} • Atualizado em {ultima_atualizacao}"
+                st.markdown(
+                    f"""<div class="card-indicador-visual">
+                        <div class="card-indicador-principal">
+                            <span class="card-indicador-icone">{html.escape(str(icone))}</span>
+                            <span class="card-indicador-titulo">{html.escape(str(titulo))}</span>
+                        </div>
+                        <div class="card-indicador-rodape">{html.escape(rodape_atualizacao)}</div>
+                    </div>""",
+                    unsafe_allow_html=True,
+                )
                 if st.button(
-                    f"{icone}\n\n{titulo}\n\n{rodape_atualizacao}",
+                    f"Abrir {titulo}",
                     key=f"card_indicador_{area}_{inicio}_{titulo}",
                     use_container_width=True,
                     type="secondary",
@@ -1224,6 +1235,102 @@ div[data-testid="stHorizontalBlock"]:has([class*="st-key-card_indicador_"])>div{
 }
 @media(max-width:580px){
   [class*="st-key-card_indicador_"] button{min-height:142px!important;height:142px!important}
+}
+
+/* Card com título destacado e metadados discretos no rodapé */
+.card-indicador-visual{
+  position:relative;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  align-items:center;
+  width:100%;
+  height:190px;
+  box-sizing:border-box;
+  padding:22px 16px 34px;
+  overflow:hidden;
+  border:1px solid rgba(218,41,28,.16);
+  border-top:5px solid #ed5b35;
+  border-radius:18px;
+  background:linear-gradient(145deg,#fff,#fff6f3);
+  box-shadow:0 10px 28px rgba(79,20,20,.10);
+  pointer-events:none;
+  transition:transform .2s ease,box-shadow .2s ease,border-color .2s ease;
+}
+.card-indicador-principal{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:7px;
+  width:100%;
+  text-align:center;
+}
+.card-indicador-icone{font-size:1.12rem;line-height:1}
+.card-indicador-titulo{
+  color:#202231;
+  font-size:.94rem;
+  font-weight:850;
+  line-height:1.28;
+}
+.card-indicador-rodape{
+  position:absolute;
+  left:10px;
+  right:10px;
+  bottom:13px;
+  color:#777b85;
+  font-size:.67rem;
+  font-weight:400;
+  line-height:1.15;
+  text-align:center;
+  white-space:normal;
+}
+/* O botão Streamlit fica transparente sobre o card inteiro. */
+[class*="st-key-card_indicador_"]{
+  position:relative!important;
+  z-index:3!important;
+  height:190px!important;
+  margin-top:-190px!important;
+}
+[class*="st-key-card_indicador_"] button{
+  width:100%!important;
+  min-height:190px!important;
+  height:190px!important;
+  padding:0!important;
+  border:0!important;
+  border-radius:18px!important;
+  background:transparent!important;
+  box-shadow:none!important;
+  color:transparent!important;
+  opacity:1!important;
+}
+[class*="st-key-card_indicador_"] button p{font-size:0!important;color:transparent!important}
+div[data-testid="stVerticalBlock"]:has(> .card-indicador-visual):hover .card-indicador-visual{
+  transform:translateY(-4px);
+  border-color:#da291c;
+  box-shadow:0 16px 34px rgba(122,25,25,.16);
+}
+@media(max-width:1200px){
+  .card-indicador-visual,[class*="st-key-card_indicador_"],[class*="st-key-card_indicador_"] button{
+    height:180px!important;min-height:180px!important;
+  }
+  [class*="st-key-card_indicador_"]{margin-top:-180px!important}
+}
+@media(max-width:900px){
+  .card-indicador-visual,[class*="st-key-card_indicador_"],[class*="st-key-card_indicador_"] button{
+    height:166px!important;min-height:166px!important;
+  }
+  [class*="st-key-card_indicador_"]{margin-top:-166px!important}
+  .card-indicador-rodape{font-size:.65rem;bottom:11px}
+}
+@media(max-width:580px){
+  .card-indicador-visual,[class*="st-key-card_indicador_"],[class*="st-key-card_indicador_"] button{
+    height:142px!important;min-height:142px!important;
+  }
+  .card-indicador-visual{padding:16px 10px 30px;border-radius:15px}
+  [class*="st-key-card_indicador_"]{height:142px!important;margin-top:-142px!important}
+  [class*="st-key-card_indicador_"] button{border-radius:15px!important}
+  .card-indicador-titulo{font-size:.86rem}
+  .card-indicador-rodape{font-size:.62rem;bottom:9px}
 }
 </style>
 <div class="portal-head portal-head-base">
