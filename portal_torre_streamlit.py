@@ -1332,6 +1332,32 @@ div[data-testid="stVerticalBlock"]:has(> .card-indicador-visual):hover .card-ind
   .card-indicador-titulo{font-size:.86rem}
   .card-indicador-rodape{font-size:.62rem;bottom:9px}
 }
+
+/* Refinamento final da tipografia dos cards */
+.card-indicador-titulo{
+  font-size:1.01rem!important;
+  line-height:1.30!important;
+  font-weight:850!important;
+}
+.card-indicador-rodape{
+  color:#565b65!important;
+  font-size:.73rem!important;
+  font-weight:400!important;
+  line-height:1.18!important;
+  bottom:13px!important;
+}
+@media(max-width:1200px){
+  .card-indicador-titulo{font-size:.97rem!important}
+  .card-indicador-rodape{font-size:.71rem!important}
+}
+@media(max-width:900px){
+  .card-indicador-titulo{font-size:.93rem!important}
+  .card-indicador-rodape{font-size:.69rem!important;bottom:11px!important}
+}
+@media(max-width:580px){
+  .card-indicador-titulo{font-size:.89rem!important}
+  .card-indicador-rodape{font-size:.66rem!important;bottom:9px!important}
+}
 </style>
 <div class="portal-head portal-head-base">
   <div class="portal-brand">
