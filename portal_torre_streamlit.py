@@ -26,7 +26,7 @@ FUSO_BRASILIA = ZoneInfo("America/Sao_Paulo")
 # Os títulos foram mantidos alinhados à Central HTML atual.
 INDICADORES = {
     "Armazenagem": [
-        {"titulo": "Chatbot Torre Logística", "url": "https://chatbot-logistica-e4cpfbcta3qyqchopsdjeg.streamlit.app/", "icone": "🤖", "periodicidade": " ", "ultima_atualizacao": "Em Construção"},
+        {"titulo": "Chatbot Torre Logística", "url": "https://chatbot-logistica-e4cpfbcta3qyqchopsdjeg.streamlit.app/", "icone": "🤖", "periodicidade": "EM CONSTRUÇÂO", "ultima_atualizacao": ""},
         {"titulo": "Separação e Faturamento", "url": "https://dashboard-slaseparacaofaturamento-mdnfzinkaebwzysne83ewp.streamlit.app/", "icone": "📊", "periodicidade": "Exporádica", "ultima_atualizacao": "27/09/2026"},
         {"titulo": "Pedidos para LPs", "url": "https://pedidoslpsaas-y44bkbmcg4kon8fogbro34.streamlit.app/", "icone": "📦", "periodicidade": "A definir", "ultima_atualizacao": "-"},
         {"titulo": "Resultado do DRE", "url": "https://resultadodre-lk6rh4ahefeuwfhwrg2ioc.streamlit.app/", "icone": "💰", "periodicidade": "A definir", "ultima_atualizacao": "-"},
