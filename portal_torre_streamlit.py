@@ -378,7 +378,7 @@ def exibir_central_indicadores():
                 icone = indicador["icone"]
                 periodicidade = indicador.get("periodicidade") or "A definir"
                 ultima_atualizacao = indicador.get("ultima_atualizacao") or "-"
-                rodape_atualizacao = f"{periodicidade} • Atualizado em {ultima_atualizacao}"
+                rodape_atualizacao = f"{periodicidade} • Atualizado até {ultima_atualizacao}"
                 st.markdown(
                     f"""<div class="card-indicador-visual">
                         <div class="card-indicador-principal">
