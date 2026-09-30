@@ -26,25 +26,24 @@ FUSO_BRASILIA = ZoneInfo("America/Sao_Paulo")
 # Os títulos foram mantidos alinhados à Central HTML atual.
 INDICADORES = {
     "Armazenagem": [
-        {"titulo": "Chatbot Torre Logística", "url": "https://chatbot-logistica-e4cpfbcta3qyqchopsdjeg.streamlit.app/", "icone": "🤖"},
-        {"titulo": "Separação e Faturamento", "url": "https://dashboard-slaseparacaofaturamento-mdnfzinkaebwzysne83ewp.streamlit.app/", "icone": "📊"},
-        {"titulo": "Pedidos para LPs", "url": "https://pedidoslpsaas-y44bkbmcg4kon8fogbro34.streamlit.app/", "icone": "📦"},
-        {"titulo": "Resultado do DRE", "url": "https://resultadodre-lk6rh4ahefeuwfhwrg2ioc.streamlit.app/", "icone": "💰"},
-        {"titulo": "Valores dos EAs", "url": "https://valorestoques-eas-73bxfsks3rnoxjo44fuqm7.streamlit.app/", "icone": "📈"},
-        {"titulo": "Atendimento de OVs nos TLs", "url": "https://atendimento-de-ovs-nos-tls-in3rykeacnvjxedhb7r9zc.streamlit.app/", "icone": "📋"},
-        {"titulo": "Taxa de Ocupação dos CDs", "url": "https://taxadeocupacaodoscds-tfx8ftu78n46vhvn5dxc7k.streamlit.app/", "icone": "🏭"},
-        {"titulo": "Pedidos Canal Vermelho", "url": "https://cuencjwy3ahhnzymzsspuc.streamlit.app/", "icone": "⚡"},
-        {"titulo": "Pedidos LPs e AAs NFs não Agrupadas", "url": "https://nfs-nao-agrupadas-juqvjn8nhbzuhzzdfwknbl.streamlit.app/", "icone": "🧾"},
-        {"titulo": "Faturas dos OPLs", "url": "https://faturasdosopls-fdgzskwvbciwkgubekfjcz.streamlit.app/", "icone": "💵"},
-        {"titulo": "Recebimento de Usados", "url": "https://controlederecebimentodeusados-ucfnrvqwuceiet5q7tt4wn.streamlit.app/", "icone": "♻️"},
-        {"titulo": "Nível de Serviços dos OPLs", "url": "https://niveldeservicoopls-sgrryyugyheukmxp2xtzp8.streamlit.app/", "icone": "🚚"},
-        {"titulo": "Forecast e Realizado", "url": "https://forecasterealizado-kebvdtavq5yc8s9kwrfqiu.streamlit.app/", "icone": "🔢"},
-        {"titulo": "Simulação de Pedidos", "url": "https://simulacaopedidos-myjtjrm3nklxzprutjpbd5.streamlit.app/", "icone": "🧮"},
+        {"titulo": "Chatbot Torre Logística", "url": "https://chatbot-logistica-e4cpfbcta3qyqchopsdjeg.streamlit.app/", "icone": "🤖", "periodicidade": "A definir", "ultima_atualizacao": "-"},
+        {"titulo": "Separação e Faturamento", "url": "https://dashboard-slaseparacaofaturamento-mdnfzinkaebwzysne83ewp.streamlit.app/", "icone": "📊", "periodicidade": "A definir", "ultima_atualizacao": "-"},
+        {"titulo": "Pedidos para LPs", "url": "https://pedidoslpsaas-y44bkbmcg4kon8fogbro34.streamlit.app/", "icone": "📦", "periodicidade": "A definir", "ultima_atualizacao": "-"},
+        {"titulo": "Resultado do DRE", "url": "https://resultadodre-lk6rh4ahefeuwfhwrg2ioc.streamlit.app/", "icone": "💰", "periodicidade": "A definir", "ultima_atualizacao": "-"},
+        {"titulo": "Valores dos EAs", "url": "https://valorestoques-eas-73bxfsks3rnoxjo44fuqm7.streamlit.app/", "icone": "📈", "periodicidade": "A definir", "ultima_atualizacao": "-"},
+        {"titulo": "Atendimento de OVs nos TLs", "url": "https://atendimento-de-ovs-nos-tls-in3rykeacnvjxedhb7r9zc.streamlit.app/", "icone": "📋", "periodicidade": "A definir", "ultima_atualizacao": "-"},
+        {"titulo": "Taxa de Ocupação dos CDs", "url": "https://taxadeocupacaodoscds-tfx8ftu78n46vhvn5dxc7k.streamlit.app/", "icone": "🏭", "periodicidade": "A definir", "ultima_atualizacao": "-"},
+        {"titulo": "Pedidos Canal Vermelho", "url": "https://cuencjwy3ahhnzymzsspuc.streamlit.app/", "icone": "⚡", "periodicidade": "A definir", "ultima_atualizacao": "-"},
+        {"titulo": "Pedidos LPs e AAs NFs não Agrupadas", "url": "https://nfs-nao-agrupadas-juqvjn8nhbzuhzzdfwknbl.streamlit.app/", "icone": "🧾", "periodicidade": "A definir", "ultima_atualizacao": "-"},
+        {"titulo": "Faturas dos OPLs", "url": "https://faturasdosopls-fdgzskwvbciwkgubekfjcz.streamlit.app/", "icone": "💵", "periodicidade": "A definir", "ultima_atualizacao": "-"},
+        {"titulo": "Recebimento de Usados", "url": "https://controlederecebimentodeusados-ucfnrvqwuceiet5q7tt4wn.streamlit.app/", "icone": "♻️", "periodicidade": "A definir", "ultima_atualizacao": "-"},
+        {"titulo": "Nível de Serviços dos OPLs", "url": "https://niveldeservicoopls-sgrryyugyheukmxp2xtzp8.streamlit.app/", "icone": "🚚", "periodicidade": "A definir", "ultima_atualizacao": "-"},
+        {"titulo": "Forecast e Realizado", "url": "https://forecasterealizado-kebvdtavq5yc8s9kwrfqiu.streamlit.app/", "icone": "🔢", "periodicidade": "A definir", "ultima_atualizacao": "-"},
+        {"titulo": "Simulação de Pedidos", "url": "https://simulacaopedidos-myjtjrm3nklxzprutjpbd5.streamlit.app/", "icone": "🧮", "periodicidade": "A definir", "ultima_atualizacao": "-"},
     ],
     "Triagem": [],
     "Reversa": [],
 }
-
 st.set_page_config(page_title="Claro | Central de Inteligência Operacional", page_icon="🔴", layout="wide")
 
 
@@ -376,8 +375,11 @@ def exibir_central_indicadores():
                 destino = gerar_url_canal_vermelho() if indicador["url"] == "CANAL_VERMELHO" else indicador["url"]
                 titulo = indicador["titulo"]
                 icone = indicador["icone"]
+                periodicidade = indicador.get("periodicidade") or "A definir"
+                ultima_atualizacao = indicador.get("ultima_atualizacao") or "-"
+                rodape_atualizacao = f"{periodicidade} • Atualizado em {ultima_atualizacao}"
                 if st.button(
-                    f"{icone}\n\n{titulo}",
+                    f"{icone}\n\n{titulo}\n\n{rodape_atualizacao}",
                     key=f"card_indicador_{area}_{inicio}_{titulo}",
                     use_container_width=True,
                     type="secondary",
@@ -1200,6 +1202,28 @@ div[data-testid="stHorizontalBlock"]:has([class*="st-key-card_indicador_"])>div{
     font-size:.86rem!important;
     line-height:1.25!important;
   }
+}
+
+/* Informações discretas de periodicidade e última atualização */
+[class*="st-key-card_indicador_"] button{
+  min-height:190px!important;
+  height:190px!important;
+}
+[class*="st-key-card_indicador_"] button p{
+  white-space:pre-line!important;
+  line-height:1.32!important;
+}
+[class*="st-key-card_indicador_"] button p::first-line{
+  font-size:1.72rem!important;
+}
+@media(max-width:1200px){
+  [class*="st-key-card_indicador_"] button{min-height:180px!important;height:180px!important}
+}
+@media(max-width:900px){
+  [class*="st-key-card_indicador_"] button{min-height:166px!important;height:166px!important}
+}
+@media(max-width:580px){
+  [class*="st-key-card_indicador_"] button{min-height:142px!important;height:142px!important}
 }
 </style>
 <div class="portal-head portal-head-base">
