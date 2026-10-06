@@ -31,7 +31,7 @@ INDICADORES = {
         {"titulo": "Separação e Faturamento", "url": "https://dashboard-slaseparacaofaturamento-mdnfzinkaebwzysne83ewp.streamlit.app/", "icone": "📊", "periodicidade": "Exporádica", "ultima_atualizacao": "27/09/2026"},
         {"titulo": "Pedidos para LPs", "url": "https://pedidoslpsaas-y44bkbmcg4kon8fogbro34.streamlit.app/", "icone": "📦", "periodicidade": "Mensal", "ultima_atualizacao": "Agosto/2026"},
         {"titulo": "Resultado do DRE", "url": "https://resultadodre-lk6rh4ahefeuwfhwrg2ioc.streamlit.app/", "icone": "💰", "periodicidade": "Mensal", "ultima_atualizacao": "Agosto/2026"},
-        {"titulo": "Valores dos EAs", "url": "https://valorestoques-eas-73bxfsks3rnoxjo44fuqm7.streamlit.app/", "icone": "📈", "periodicidade": "Mensal", "ultima_atualizacao": "Setembro/2026"},
+        {"titulo": "Valores dos EAs", "url": "https://valorestoques-eas-73bxfsks3rnoxjo44fuqm7.streamlit.app/", "icone": "📈", "periodicidade": "Mensal", "ultima_atualizacao": "Outubro/2026"},
         {"titulo": "Atendimento de OVs nos TLs", "url": "https://atendimento-de-ovs-nos-tls-in3rykeacnvjxedhb7r9zc.streamlit.app/", "icone": "📋", "periodicidade": "Exporádica", "ultima_atualizacao": "30/09/2026"},
         {"titulo": "Taxa de Ocupação dos CDs", "url": "https://taxadeocupacaodoscds-tfx8ftu78n46vhvn5dxc7k.streamlit.app/", "icone": "🏭", "periodicidade": "Exporádica", "ultima_atualizacao": "Agosto/2026"},
         {"titulo": "Pedidos Canal Vermelho", "url": "https://cuencjwy3ahhnzymzsspuc.streamlit.app/", "icone": "⚡", "periodicidade": "Exporádica", "ultima_atualizacao": "27/09/2026"},
