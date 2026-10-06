@@ -1358,6 +1358,39 @@ div[data-testid="stVerticalBlock"]:has(> .card-indicador-visual):hover .card-ind
   .card-indicador-titulo{font-size:.89rem!important}
   .card-indicador-rodape{font-size:.66rem!important;bottom:9px!important}
 }
+
+/* Mantem exatamente as mesmas cores do card durante hover, foco e clique */
+.card-indicador-visual:hover,
+div[data-testid="stVerticalBlock"]:has(> .card-indicador-visual):hover .card-indicador-visual,
+div[data-testid="stVerticalBlock"]:has(> .card-indicador-visual):focus-within .card-indicador-visual{
+  background:linear-gradient(145deg,#fff,#fff6f3)!important;
+  border-color:rgba(218,41,28,.16)!important;
+  border-top-color:#ed5b35!important;
+  box-shadow:0 10px 28px rgba(79,20,20,.10)!important;
+  transform:none!important;
+  filter:none!important;
+}
+[class*="st-key-card_indicador_"] button,
+[class*="st-key-card_indicador_"] button:hover,
+[class*="st-key-card_indicador_"] button:focus,
+[class*="st-key-card_indicador_"] button:focus-visible,
+[class*="st-key-card_indicador_"] button:active{
+  background:transparent!important;
+  background-color:transparent!important;
+  border:0!important;
+  box-shadow:none!important;
+  color:transparent!important;
+  opacity:1!important;
+  transform:none!important;
+  filter:none!important;
+  outline:none!important;
+}
+[class*="st-key-card_indicador_"] button:hover *,
+[class*="st-key-card_indicador_"] button:focus *,
+[class*="st-key-card_indicador_"] button:active *{
+  background:transparent!important;
+  color:transparent!important;
+}
 </style>
 <div class="portal-head portal-head-base">
   <div class="portal-brand">
