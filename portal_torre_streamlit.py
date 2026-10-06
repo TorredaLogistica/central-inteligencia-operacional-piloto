@@ -1417,6 +1417,33 @@ div[data-testid="stVerticalBlock"]:has(> .card-indicador-visual):focus-within .c
   filter:none!important;
   outline:none!important;
 }
+
+/* Correcao definitiva do hover: aplica o movimento na coluna que contem o botao transparente */
+div[data-testid="stColumn"]:has([class*="st-key-card_indicador_"] button:hover) .card-indicador-visual,
+div[data-testid="column"]:has([class*="st-key-card_indicador_"] button:hover) .card-indicador-visual,
+div[data-testid="stColumn"]:has([class*="st-key-card_indicador_"]:hover) .card-indicador-visual,
+div[data-testid="column"]:has([class*="st-key-card_indicador_"]:hover) .card-indicador-visual{
+  background:linear-gradient(145deg,#fff,#fff6f3)!important;
+  border-color:rgba(218,41,28,.16)!important;
+  border-top-color:#ed5b35!important;
+  box-shadow:0 16px 34px rgba(122,25,25,.16)!important;
+  transform:translateY(-4px)!important;
+  filter:none!important;
+}
+/* A camada clicavel permanece totalmente transparente em todos os estados. */
+[class*="st-key-card_indicador_"] button:hover,
+[class*="st-key-card_indicador_"] button:focus,
+[class*="st-key-card_indicador_"] button:focus-visible,
+[class*="st-key-card_indicador_"] button:active{
+  background:transparent!important;
+  background-color:transparent!important;
+  border-color:transparent!important;
+  box-shadow:none!important;
+  color:transparent!important;
+  opacity:1!important;
+  filter:none!important;
+  outline:none!important;
+}
 </style>
 <div class="portal-head portal-head-base">
   <div class="portal-brand">
