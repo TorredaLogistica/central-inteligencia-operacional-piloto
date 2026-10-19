@@ -36,7 +36,7 @@ INDICADORES = {
         {"titulo": "Taxa de Ocupação dos CDs", "url": "https://taxadeocupacaodoscds-tfx8ftu78n46vhvn5dxc7k.streamlit.app/", "icone": "🏭", "periodicidade": "Exporádica", "ultima_atualizacao": "Setembro/2026"},
         {"titulo": "Pedidos Canal Vermelho", "url": "https://cuencjwy3ahhnzymzsspuc.streamlit.app/", "icone": "⚡", "periodicidade": "Exporádica", "ultima_atualizacao": "06/10/2026"},
         {"titulo": "Pedidos LPs e AAs NFs não Agrupadas", "url": "https://nfs-nao-agrupadas-juqvjn8nhbzuhzzdfwknbl.streamlit.app/", "icone": "🧾", "periodicidade": "Exporádica", "ultima_atualizacao": "29/09/2026"},
-        {"titulo": "Faturas dos OPLs", "url": "https://faturasdosopls-fdgzskwvbciwkgubekfjcz.streamlit.app/", "icone": "💵", "periodicidade": "Mensal", "ultima_atualizacao": "Setembro/2026"},
+        {"titulo": "Faturas dos OPLs", "url": "https://faturasdosopls-fdgzskwvbciwkgubekfjcz.streamlit.app/", "icone": "💵", "periodicidade": "Mensal", "ultima_atualizacao": "Outubro/2026"},
         {"titulo": "Recebimento de Usados", "url": "https://controlederecebimentodeusados-ucfnrvqwuceiet5q7tt4wn.streamlit.app/", "icone": "♻️", "periodicidade": "Mensal", "ultima_atualizacao": "Setembro/2026"},
         {"titulo": "Nível de Serviços dos OPLs", "url": "https://niveldeservicoopls-sgrryyugyheukmxp2xtzp8.streamlit.app/", "icone": "🚚", "periodicidade": "Exporádica", "ultima_atualizacao": "06/10/2026"},
         {"titulo": "Forecast e Realizado", "url": "https://forecasterealizado-kebvdtavq5yc8s9kwrfqiu.streamlit.app/", "icone": "🔢", "periodicidade": "Mensal", "ultima_atualizacao": "Setembro/2026"},
