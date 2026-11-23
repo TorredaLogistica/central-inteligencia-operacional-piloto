@@ -498,18 +498,29 @@ def card_executivo(titulo,valor,detalhe,classe=""):
 def exibir_visao_geral():
     perfis_cd = {
         "Consolidado": {"volume":1280000,"expedicoes":1140000,"custo":12.47,"sla":96.8,"reversa":2.45,"nps":89,"fator":1.00},
-        "CD Jundiaí": {"volume":245890,"expedicoes":226180,"custo":2.31,"sla":98.7,"reversa":1.92,"nps":94,"fator":0.23},
-        "CD Cajamar": {"volume":214335,"expedicoes":195420,"custo":2.08,"sla":97.1,"reversa":2.31,"nps":91,"fator":0.20},
-        "CD Betim": {"volume":172889,"expedicoes":153760,"custo":1.86,"sla":95.4,"reversa":2.71,"nps":86,"fator":0.16},
-        "CD Curitiba": {"volume":138371,"expedicoes":121890,"custo":1.48,"sla":95.0,"reversa":2.88,"nps":84,"fator":0.13},
-        "CD Goiânia": {"volume":125667,"expedicoes":109420,"custo":1.34,"sla":94.3,"reversa":3.12,"nps":82,"fator":0.12},
+        "Campinas": {"volume":238450,"expedicoes":219700,"custo":2.18,"sla":98.2,"reversa":1.88,"nps":93,"fator":0.19},
+        "Rio de Janeiro": {"volume":205320,"expedicoes":186400,"custo":2.04,"sla":96.7,"reversa":2.38,"nps":90,"fator":0.16},
+        "Brasília": {"volume":141880,"expedicoes":126300,"custo":1.42,"sla":96.1,"reversa":2.42,"nps":88,"fator":0.11},
+        "Barueri": {"volume":186750,"expedicoes":169800,"custo":1.81,"sla":97.4,"reversa":2.05,"nps":91,"fator":0.15},
+        "Contagem": {"volume":152460,"expedicoes":134900,"custo":1.55,"sla":95.6,"reversa":2.72,"nps":86,"fator":0.12},
+        "Palhoça": {"volume":98740,"expedicoes":87900,"custo":1.02,"sla":95.2,"reversa":2.81,"nps":85,"fator":0.08},
+        "Jaboatão": {"volume":88760,"expedicoes":77600,"custo":0.94,"sla":94.8,"reversa":2.96,"nps":83,"fator":0.07},
+        "Manaus": {"volume":69340,"expedicoes":59400,"custo":0.82,"sla":93.9,"reversa":3.18,"nps":81,"fator":0.05},
+        "Salvador": {"volume":98290,"expedicoes":87900,"custo":0.99,"sla":95.0,"reversa":2.89,"nps":84,"fator":0.08},
     }
-    t1,t2,t3,t4=st.columns([3.0,1.05,1.25,1.15])
+    empresas = {"Consolidado":1.00,"Claro Móvel":0.48,"Claro TV":0.18,"Embratel":0.14,"NET":0.12,"Claro Fixo":0.08}
+    t1,t2,t3,t4=st.columns([3.15,1.05,1.15,1.15])
     with t1: st.markdown('<div class="cio-title">Central de Inteligência Operacional</div><div class="cio-subtitle">Gerência de Armazenagem, Triagem e Reversa</div>',unsafe_allow_html=True)
     with t2: st.markdown('<div class="cio-update">📅 &nbsp; Última atualização:<br><strong>23/11/2026 12:30</strong></div>',unsafe_allow_html=True)
-    with t3: periodo=st.selectbox("Período",["Mês atual (Novembro/2026)","Últimos 3 meses","Últimos 6 meses","Ano 2026"],key="periodo_visao_geral")
-    with t4: cd_selecionado=st.selectbox("Centro de Distribuição",list(perfis_cd.keys()),key="cd_visao_geral")
-    perfil=perfis_cd[cd_selecionado]
+    with t3: cd_selecionado=st.selectbox("CD Origem",list(perfis_cd.keys()),key="cd_visao_geral")
+    with t4: empresa_selecionada=st.selectbox("Empresa",list(empresas.keys()),key="empresa_visao_geral")
+    perfil=perfis_cd[cd_selecionado].copy()
+    fator_empresa=empresas[empresa_selecionada]
+    perfil["volume"]=round(perfil["volume"]*fator_empresa)
+    perfil["expedicoes"]=round(perfil["expedicoes"]*fator_empresa)
+    perfil["custo"]=perfil["custo"]*fator_empresa
+    perfil["fator"]=perfil["fator"]*fator_empresa
+    perfil["dre"]=round((perfil["custo"]*0.126)-(perfil["custo"]*0.041),2)
     fmt=lambda v: f"{v/1000000:.2f} MM".replace(".",",") if v>=1000000 else f"{v:,.0f}".replace(",",".")
     kpis=[
         ("📦","VOLUME RECEBIDO",fmt(perfil["volume"]),"Unidades","▲ 8,6% vs mês anterior","#18b84b"),
@@ -517,16 +528,24 @@ def exibir_visao_geral():
         ("💲","CUSTO LOGÍSTICO",f"R$ {perfil['custo']:.2f} MM".replace(".",","),"Acumulado no mês","▼ 4,2% vs mês anterior","#e53935"),
         ("🕒","SLA OPERACIONAL",f"{perfil['sla']:.1f}%".replace(".",","),"No mês","▲ 2,1 p.p. vs mês anterior","#18b84b"),
         ("🔄","ÍNDICE DE REVERSA",f"{perfil['reversa']:.2f}%".replace(".",","),"Das expedições","▼ 0,35 p.p. vs mês anterior","#18b84b"),
-        ("🙂","NPS INTERNO",str(perfil["nps"]),"Satisfação","▲ 3 pontos vs mês anterior","#18b84b"),
+        ("💰","RESULTADO DO DRE",f"R$ {perfil['dre']:.2f} MM".replace(".",","),"Resultado operacional","▲ 5,8% vs mês anterior","#18b84b"),
     ]
-    contexto="Visão consolidada de todos os CDs" if cd_selecionado=="Consolidado" else f"Resumo filtrado para {cd_selecionado}"
+    contexto_cd="Todos os CDs" if cd_selecionado=="Consolidado" else cd_selecionado
+    contexto_empresa="Todas as empresas" if empresa_selecionada=="Consolidado" else empresa_selecionada
+    contexto=f"{contexto_cd} • {contexto_empresa}"
     st.markdown(f'<div class="demo-strip">DADOS DEMONSTRATIVOS • {html.escape(contexto)}</div>',unsafe_allow_html=True)
     for col,item in zip(st.columns(6,gap="small"),kpis):
         with col:
             icone,titulo,valor,unidade,variacao,cor=item
             st.markdown(f'<div class="cio-kpi"><div class="cio-kpi-head"><span class="cio-kpi-icon">{icone}</span><span class="cio-kpi-title">{titulo}</span></div><div class="cio-kpi-value">{valor}</div><div class="cio-kpi-unit">{unidade}</div><div class="cio-kpi-change" style="color:{cor}">{variacao}</div><div class="cio-spark">⌁╱⌁╱╲╱</div></div>',unsafe_allow_html=True)
 
-    cds=pd.DataFrame({"CD":["CD Jundiaí","CD Cajamar","CD Betim","CD Curitiba","CD Goiânia"],"Volume":[245890,214335,172889,138371,125667],"SLA":[98.7,97.1,95.4,95.0,94.3],"Reversa":[1.92,2.31,2.71,2.88,3.12]})
+    cds=pd.DataFrame({
+        "CD":["Campinas","Rio de Janeiro","Brasília","Barueri","Contagem","Palhoça","Jaboatão","Manaus","Salvador"],
+        "Volume":[238450,205320,141880,186750,152460,98740,88760,69340,98290],
+        "SLA":[98.2,96.7,96.1,97.4,95.6,95.2,94.8,93.9,95.0],
+        "Reversa":[1.88,2.38,2.42,2.05,2.72,2.81,2.96,3.18,2.89],
+    })
+    cds["Volume"]=(cds["Volume"]*fator_empresa).round().astype(int)
     regioes=pd.DataFrame({"Região":["Sudeste","Sul","Nordeste","Centro-Oeste","Norte"],"Participação":[45,19,18,11,7]})
     alertas_base=[("🔴","SLA abaixo da meta","SLA inferior à meta operacional","Há 2h"),("🟠","Aumento do índice de reversa","Índice acima da referência","Há 3h"),("🟠","Pendências de faturamento","Valores aguardando tratamento","Há 4h"),("🔴","Atraso em pedidos Canal Vermelho","Pedidos críticos em atraso","Há 5h"),("🟠","Estoque de usados acima do limite","Volume acima da referência","Há 6h")]
     c1,c2,c3=st.columns([1.05,1,1.08],gap="medium")
@@ -537,12 +556,15 @@ def exibir_visao_geral():
     with c2:
         st.markdown(f'<div class="cio-panel-title">CENTROS DE DISTRIBUIÇÃO</div><div class="cio-panel-sub">{html.escape(contexto)}</div>',unsafe_allow_html=True)
         df_cd=cds.copy() if cd_selecionado=="Consolidado" else cds[cds["CD"]==cd_selecionado].copy()
-        df_cd["Volume recebido"]=df_cd["Volume"].map(lambda x:f"{x:,.0f}".replace(",","."));df_cd["SLA"]=df_cd["SLA"].map(lambda x:f"{x:.1f}%".replace(".",","));df_cd["Índice reversa"]=df_cd["Reversa"].map(lambda x:f"{x:.2f}%".replace(".",","))
-        st.dataframe(df_cd[["CD","Volume recebido","SLA","Índice reversa"]],use_container_width=True,hide_index=True,height=300)
+        linhas_tabela="".join(
+            f'<tr><td>{html.escape(str(r.CD))}</td><td>{r.Volume:,.0f}</td><td>{r.SLA:.1f}%</td><td>{r.Reversa:.2f}%</td></tr>'.replace(",","X").replace(".",",").replace("X",".")
+            for r in df_cd.itertuples()
+        )
+        st.markdown(f'<div class="cio-table-wrap"><table class="cio-table"><thead><tr><th>CD Origem</th><th>Volume recebido</th><th>SLA</th><th>Índice reversa</th></tr></thead><tbody>{linhas_tabela}</tbody></table></div>',unsafe_allow_html=True)
     with c3:
         st.markdown(f'<div class="cio-panel-title">ALERTAS E DESVIOS CRÍTICOS <span class="alert-count">{len(alertas_base)}</span></div>',unsafe_allow_html=True)
         for icone,titulo,detalhe,tempo in alertas_base:
-            st.markdown(f'<div class="cio-alert"><span class="cio-alert-icon">{icone}</span><span><b>{titulo}</b><small>{detalhe} • {html.escape(cd_selecionado)}</small></span><em>{tempo}</em></div>',unsafe_allow_html=True)
+            st.markdown(f'<div class="cio-alert"><span class="cio-alert-icon">{icone}</span><span><b>{titulo}</b><small>{detalhe} • {html.escape(contexto)}</small></span><em>{tempo}</em></div>',unsafe_allow_html=True)
 
     fator=perfil["fator"]
     meses=["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov"]
@@ -559,7 +581,7 @@ def exibir_visao_geral():
         st.altair_chart(line,use_container_width=True)
     with p3:
         st.markdown('<div class="cio-panel-title">DESTAQUES DA OPERAÇÃO</div>',unsafe_allow_html=True)
-        destaques=[f"SLA atual de {str(perfil['sla']).replace('.',',')}%",f"Índice de reversa em {str(perfil['reversa']).replace('.',',')}%",f"{fmt(perfil['volume'])} unidades recebidas",f"{fmt(perfil['expedicoes'])} expedições realizadas","Dados simulados para validação do filtro"]
+        destaques=[f"SLA atual de {str(perfil['sla']).replace('.',',')}%",f"Índice de reversa em {str(perfil['reversa']).replace('.',',')}%",f"{fmt(perfil['volume'])} unidades recebidas",f"{fmt(perfil['expedicoes'])} expedições realizadas",f"Dados simulados • {contexto}"]
         for i,texto in enumerate(destaques):st.markdown(f'<div class="cio-highlight">{"✅" if i<4 else "ℹ️"} {texto}</div>',unsafe_allow_html=True)
 
 
@@ -1787,6 +1809,14 @@ body:not(:has(.cio-title)) [data-testid="stVerticalBlockBorderWrapper"]{box-shad
 /* Filtro de CD na Visao Geral */
 body:has(.cio-title) [data-testid="stSelectbox"] label{color:#f3f5f7!important;font-size:.65rem!important;font-weight:700!important}
 body:has(.cio-title) [data-testid="stSelectbox"]>div>div{min-height:40px!important}
+
+/* Tabela executiva dos CDs, alinhada ao restante da Visao Geral */
+.cio-table-wrap{background:#100c0f;border:1px solid #55262c;border-radius:14px;overflow:auto;max-height:300px;margin-top:8px}
+.cio-table{width:100%;border-collapse:collapse;color:#f4f5f7;font-size:.76rem}
+.cio-table th{position:sticky;top:0;background:#1c1115;color:#f7f7f8;text-align:left;padding:11px 10px;border-bottom:1px solid #643038;font-size:.67rem;text-transform:uppercase;letter-spacing:.35px}
+.cio-table td{padding:11px 10px;border-bottom:1px solid #352126;color:#e9e4e5}
+.cio-table tbody tr:hover{background:#211318}
+.cio-table tbody tr:last-child td{border-bottom:0}
 </style>
 <div class="portal-head portal-head-base">
   <div class="portal-brand">
