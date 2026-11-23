@@ -632,28 +632,22 @@ def exibir_visao_geral():
 
 
     alertas_base=[("🔴","SLA abaixo da meta","SLA inferior à meta operacional","Há 2h"),("🟠","Ocupação crítica","CD acima de 90% de ocupação","Há 3h"),("🟠","Pendências de faturamento","Valores aguardando tratamento","Há 4h"),("🔴","Atraso em pedidos Canal Vermelho","Pedidos críticos em atraso","Há 5h")]
-    c1,c2,c3=st.columns([1.0,1.18,1.0],gap="medium")
+    c1,c2=st.columns([1.45,1.0],gap="medium")
     with c1:
         st.markdown(f'<div class="cio-panel-title">DESEMPENHO DOS CDs</div><div class="cio-panel-sub">Ranking executivo • {html.escape(contexto_empresa)}</div>',unsafe_allow_html=True)
         perf=cds.sort_values("Score")
-        perf_chart=alt.Chart(perf).mark_bar(cornerRadiusEnd=5).encode(
-            x=alt.X("Score:Q",scale=alt.Scale(domain=[84,94]),axis=alt.Axis(labelColor="#cbd5df",gridColor="#362329",title=None)),
+        perf_base=alt.Chart(perf).encode(
+            x=alt.X("Score:Q",scale=alt.Scale(domain=[84,95]),axis=alt.Axis(labelColor="#cbd5df",gridColor="#362329",title=None)),
             y=alt.Y("CD:N",sort=alt.EncodingSortField(field="Score",order="descending"),axis=alt.Axis(labelColor="#f2f4f7",title=None)),
-            color=alt.Color("Faixa desempenho:N", scale=alt.Scale(domain=["Excelente","Estável","Atenção"], range=["#1dc267","#f2a51a","#ef3340"]), legend=None),
+            color=alt.Color("Faixa desempenho:N",scale=alt.Scale(domain=["Excelente","Estável","Atenção"],range=["#1dc267","#f2a51a","#ef3340"]),legend=None),
             tooltip=["Rank","CD","Score","SLA","Reversa","Ocupação","Faixa desempenho"]
-        ).properties(height=300).configure_view(stroke=None).configure(background="#100c0f")
+        )
+        perf_bars=perf_base.mark_bar(cornerRadiusEnd=5)
+        perf_labels=perf_base.transform_calculate(Rotulo="format(datum.Score, '.1f')").mark_text(align="right",dx=-7,color="white",fontSize=11,fontWeight="bold").encode(text="Rotulo:N")
+        perf_chart=(perf_bars+perf_labels).properties(height=300).configure_view(stroke=None).configure(background="#100c0f")
         st.altair_chart(perf_chart,use_container_width=True)
     with c2:
-        st.markdown(f'<div class="cio-panel-title">RANKING DOS CENTROS DE DISTRIBUIÇÃO</div><div class="cio-panel-sub">Verde = melhor desempenho • Vermelho = requer ação</div>',unsafe_allow_html=True)
-        df_cd=cds.copy() if cd_selecionado=="Consolidado" else cds[cds["CD"]==cd_selecionado].copy()
-        linhas=[]
-        for r in df_cd.itertuples():
-            status="Excelente" if r.Score>=91 else ("Atenção" if r.Score<88 else "Estável")
-            cls="ok" if r.Score>=91 else ("risk" if r.Score<88 else "warn")
-            linhas.append(f'<tr class="{cls}"><td><b>#{r.Rank}</b></td><td><strong>{html.escape(r.CD)}</strong></td><td>{r.Volume:,.0f}</td><td>{r.SLA:.1f}%</td><td>{r.Reversa:.2f}%</td><td>{r.Ocupação:.0f}%</td><td><span class="status-pill {cls}">{status}</span></td></tr>'.replace(",","X").replace(".",",").replace("X","."))
-        st.markdown(f'<div class="cio-table-wrap enhanced"><table class="cio-table"><thead><tr><th>#</th><th>CD Origem</th><th>Volume</th><th>SLA</th><th>Reversa</th><th>Ocup.</th><th>Status</th></tr></thead><tbody>{"".join(linhas)}</tbody></table></div>',unsafe_allow_html=True)
-    with c3:
-        st.markdown(f'<div class="cio-panel-title">ALERTAS E DESVIOS CRÍTICOS <span class="alert-count">{len(alertas_base)}</span></div>',unsafe_allow_html=True)
+        st.markdown(f'<div class="cio-panel-title">ALERTAS E DESVIOS CRÍTICOS <span class="alert-count">{len(alertas_base)}</span></div><div class="cio-panel-sub">Pontos que exigem atuação no filtro atual</div>',unsafe_allow_html=True)
         for icone,titulo,detalhe,tempo in alertas_base:
             st.markdown(f'<div class="cio-alert"><span class="cio-alert-icon">{icone}</span><span><b>{titulo}</b><small>{detalhe} • {html.escape(contexto)}</small></span><em>{tempo}</em></div>',unsafe_allow_html=True)
 
@@ -664,7 +658,7 @@ def exibir_visao_geral():
     canal_pct["Pedidos Sem Canal Vermelho"]=100-canal_pct["Pedidos Com Canal Vermelho"]
     canal_long=canal_pct.melt("Mês",var_name="Tipo",value_name="Percentual")
     ocupacao=cds.sort_values("Ocupação",ascending=False)
-    p1,p2,p3=st.columns([1.12,1.0,0.95],gap="medium")
+    p1,p2=st.columns(2,gap="medium")
     with p1:
         st.markdown('<div class="cio-panel-title">PERCENTUAL MENSAL • CANAL VERMELHO</div><div class="cio-panel-sub">Pedidos com e sem Canal Vermelho</div>',unsafe_allow_html=True)
         base_canal=alt.Chart(canal_long).encode(
@@ -689,27 +683,8 @@ def exibir_visao_geral():
         ocup_rotulos=ocup_base.transform_calculate(Rotulo="format(datum['Ocupação'], '.0f') + '%'").mark_text(align="right",dx=-8,color="white",fontSize=12,fontWeight="bold").encode(text="Rotulo:N")
         ocup_chart=(ocup_barras+ocup_rotulos).properties(height=270).configure_view(stroke=None).configure(background="#100c0f")
         st.altair_chart(ocup_chart,use_container_width=True)
-    with p3:
-        st.markdown('<div class="cio-panel-title">DESTAQUES PARA DECISÃO</div>',unsafe_allow_html=True)
-        destaques=[
-            f"Melhor CD: {melhor_cd['CD']} (score {melhor_cd['Score']:.1f})",
-            f"CD em atenção: {pior_cd['CD']} (ocupação {pior_cd['Ocupação']:.0f}%)",
-            f"Melhor empresa: {melhor_empresa['Empresa']}",
-            f"Empresa em atenção: {pior_empresa['Empresa']}",
-            f"Filtro atual: {contexto}",
-        ]
-        for i,texto in enumerate(destaques):
-            ic="🏆" if i in (0,2) else ("⚠️" if i in (1,3) else "ℹ️")
-            st.markdown(f'<div class="cio-highlight">{ic} {html.escape(str(texto))}</div>',unsafe_allow_html=True)
 
     # Resumo do indicador Separação e Faturamento no padrão dos dashboards originais.
-    rank_cd = pd.DataFrame({
-        "CD": ["Jaboatão","Campinas","Barueri","Brasília","Belém","Salvador","Palhoça","Rio de Janeiro","Contagem","São Luís","Manaus"],
-        "SLA D+1": [82.59,93.17,94.97,95.22,98.06,98.55,98.65,99.04,99.10,99.42,100.00],
-    })
-    rank_cd["Faixa"] = rank_cd["SLA D+1"].apply(lambda v: "Crítico" if v < 90 else ("Atenção" if v < 95.56 else "Meta atingida"))
-    rank_empresa = pd.DataFrame({"Empresa":["NET","Embratel","Claro Móvel","Claro TV"],"SLA D+1":[87.39,89.38,99.05,100.00]})
-    rank_empresa["Faixa"] = rank_empresa["SLA D+1"].apply(lambda v: "Crítico" if v < 90 else ("Atenção" if v < 95.56 else "Meta atingida"))
     datas=["01/11","02/11","03/11","04/11","05/11","06/11","08/11","09/11","10/11","11/11","12/11","13/11","14/11","15/11"]
     evolucao=pd.DataFrame({
         "Período":datas,
