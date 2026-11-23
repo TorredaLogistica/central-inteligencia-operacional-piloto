@@ -636,13 +636,24 @@ def exibir_visao_geral():
     perf=cds.sort_values("Score")
     perf_base=alt.Chart(perf).encode(
         x=alt.X("Score:Q",scale=alt.Scale(domain=[84,96]),axis=alt.Axis(labelColor="#cbd5df",gridColor="#362329",title="Score operacional",titleColor="#cbd5df")),
-        y=alt.Y("CD:N",sort=alt.EncodingSortField(field="Score",order="descending"),axis=alt.Axis(labelColor="#f2f4f7",title=None)),
+        y=alt.Y(
+            "CD:N",
+            sort=alt.EncodingSortField(field="Score",order="descending"),
+            axis=alt.Axis(
+                labelColor="#f7f7f8",
+                labelFontSize=13,
+                labelFontWeight="bold",
+                labelLimit=190,
+                labelPadding=12,
+                title=None,
+            ),
+        ),
         color=alt.Color("Faixa desempenho:N",scale=alt.Scale(domain=["Excelente","Estável","Atenção"],range=["#1dc267","#f2a51a","#ef3340"]),legend=alt.Legend(labelColor="#fff",title=None,orient="top")),
         tooltip=["Rank","CD",alt.Tooltip("Score:Q",format=".1f"),alt.Tooltip("SLA:Q",format=".1f"),alt.Tooltip("Reversa:Q",format=".2f"),alt.Tooltip("Ocupação:Q",format=".0f"),"Faixa desempenho"]
     )
     perf_bars=perf_base.mark_bar(cornerRadiusEnd=6,size=24)
     perf_labels=perf_base.transform_calculate(Rotulo="format(datum.Score, '.1f')").mark_text(align="right",dx=-8,color="white",fontSize=12,fontWeight="bold").encode(text="Rotulo:N")
-    perf_chart=(perf_bars+perf_labels).properties(height=318).configure_view(stroke=None).configure(background="#100c0f")
+    perf_chart=(perf_bars+perf_labels).properties(height=360, padding={"left": 22, "right": 18, "top": 5, "bottom": 5}).configure_view(stroke=None).configure(background="#100c0f")
     st.altair_chart(perf_chart,use_container_width=True)
 
     canal_pct=pd.DataFrame({
