@@ -50,14 +50,14 @@ INDICADORES = {
 }
 
 FONTES_REMOTAS = {
-    "Separação e Faturamento": {"repositorio": "TorredaLogistica/dashboard-sla_separacao_faturamento", "branch": "main", "arquivo": "Faturamento SLA 2026_processado.parquet", "formato": "parquet"},
+    "Separação e Faturamento": {"repositorio": "TorredaLogistica/dashboard-sla_separacao_faturamento", "branch": "main", "arquivo": "Faturamento SLA 2026.xlsb", "formato": "xlsb"},
     "Pedidos para LPs": {"repositorio": "TorredaLogistica/Pedidos_LPs_AAs", "branch": "main", "arquivo": "Base OTIF SOE AAs e LPs.xlsx", "formato": "xlsx"},
     "Resultado do DRE": {"repositorio": "TorredaLogistica/Resultado_DRE", "branch": "main", "arquivo": "Resultado DRE.xlsx", "formato": "xlsx"},
     "Valores dos EAs": {"repositorio": "TorredaLogistica/Valor_Estoques_-EAs", "branch": "main", "arquivo": "Valor Estoque EAs_Consolidado.parquet", "formato": "parquet"},
     "Atendimento de OVs nos TLs": {"repositorio": "TorredaLogistica/Atendimento-de-OVs-nos-TLs", "branch": "main", "arquivo": "Base OVs TLs.parquet", "formato": "parquet"},
     "Taxa de Ocupação dos CDs": {"repositorio": "TorredaLogistica/Taxa_de_Ocupacao_dos_CDs", "branch": "main", "arquivo": "Ocupação dos CDs.xlsx", "formato": "xlsx"},
     "Pedidos Canal Vermelho": {"repositorio": "TorredaLogistica/Canal_Vermelho", "branch": "main", "arquivo": "Base OTIF.parquet", "formato": "parquet"},
-    "Pedidos LPs e AAs NFs não Agrupadas": {"repositorio": "TorredaLogistica/NFs-Nao-Agrupadas", "branch": "main", "arquivo": "Base Tracking.xlsx", "formato": "xlsx"},
+    "Pedidos LPs e AAs NFs não Agrupadas": {"repositorio": "TorredaLogistica/NFs-Nao-Agrupadas", "branch": "main", "arquivo": "Base OTIF SOE AAs e LPs.xlsx", "formato": "xlsx"},
     "Faturas dos OPLs": {"repositorio": "TorredaLogistica/Faturas_dos_OPLs", "branch": "main", "arquivo": "Base Fatura.xlsx", "formato": "xlsx"},
     "Recebimento de Usados": {"repositorio": "TorredaLogistica/Controle_de_Recebimento_de_Usados", "branch": "main", "arquivo": "Controle de Recebimento de Materiais.xlsx", "formato": "xlsx"},
     "Nível de Serviços dos OPLs": {"repositorio": "TorredaLogistica/Nivel_De_Servico_OPLs", "branch": "main", "arquivo": "Base Otif 2026.parquet", "formato": "parquet"},
@@ -542,16 +542,17 @@ def exibir_visao_geral():
     sla_d2 = max(0, min(100, 99.60 + (ajuste_sla + ajuste_empresa) * 0.20))
     total_pedidos = max(1, round(15709 * perfil["fator"]))
 
+    # Cards executivos demonstrativos. Os valores serão substituídos pelas bases oficiais.
+    valor_eas = 86.40 * fator_empresa if cd_selecionado == "Consolidado" else 86.40 * perfil["fator"]
+    volume_separacao = max(1, round(15709 * perfil["fator"]))
     kpis=[
-        ("📦","VOLUME RECEBIDO",fmt(perfil["volume"]),"Unidades","▲ 8,6% vs mês anterior","#18b84b"),
-        ("🚚","EXPEDIÇÕES REALIZADAS",fmt(perfil["expedicoes"]),"Unidades","▲ 7,3% vs mês anterior","#18b84b"),
+        ("📈","VALORES DOS EAs",f"R$ {valor_eas:.2f} MM".replace(".",","),"Valor consolidado dos estoques","▲ 3,1% vs mês anterior","#18b84b"),
+        ("📊","SEPARAÇÃO E FATURAMENTO",f"{volume_separacao:,.0f}".replace(",","."),"Volume de pedidos processados","▲ 6,8% vs mês anterior","#18b84b"),
         ("💲","CUSTO LOGÍSTICO",f"R$ {perfil['custo']:.2f} MM".replace(".",","),"Acumulado no mês","▼ 4,2% vs mês anterior","#e53935"),
-        ("🕒","SLA OPERACIONAL",f"{perfil['sla']:.1f}%".replace(".",","),"No mês","▲ 2,1 p.p. vs mês anterior","#18b84b"),
-        ("⚡","CANAL VERMELHO","7,09%","Dos pedidos","Mês anterior: 3,65% • +3,44 p.p.","#18b84b"),
         ("💰","RESULTADO DO DRE",f"R$ {perfil['dre']:.2f} MM".replace(".",","),"Resultado operacional","▲ 5,8% vs mês anterior","#18b84b"),
     ]
     st.markdown(f'<div class="demo-strip">DADOS DEMONSTRATIVOS • {html.escape(contexto)}</div>',unsafe_allow_html=True)
-    for col,item in zip(st.columns(6,gap="small"),kpis):
+    for col,item in zip(st.columns(4,gap="small"),kpis):
         with col:
             icone,titulo,valor,unidade,variacao,cor=item
             st.markdown(f'<div class="cio-kpi"><div class="cio-kpi-head"><span class="cio-kpi-icon">{icone}</span><span class="cio-kpi-title">{titulo}</span></div><div class="cio-kpi-value">{valor}</div><div class="cio-kpi-unit">{unidade}</div><div class="cio-kpi-change" style="color:{cor}">{variacao}</div><div class="cio-spark">⌁╱⌁╱╲╱</div></div>',unsafe_allow_html=True)
@@ -2020,6 +2021,11 @@ body:has(.cio-title) [data-testid="stSelectbox"]>div>div{min-height:40px!importa
 /* Resumo executivo final */
 .executive-summary{min-height:92px;margin-bottom:9px;padding:12px 14px;border-radius:13px;background:linear-gradient(145deg,#160d11,#0d0a0c);border:1px solid #523038;box-shadow:0 7px 18px rgba(0,0,0,.18)}
 .executive-summary span{display:block;color:#bfb4b7;font-size:.61rem;font-weight:900;letter-spacing:.38px;text-transform:uppercase}.executive-summary strong{display:block;color:#fff;font-size:1.03rem;margin:6px 0 3px}.executive-summary small{display:block;color:#b8acb0;font-size:.64rem;line-height:1.3}.executive-summary.good{border-left:4px solid #1dc267}.executive-summary.bad{border-left:4px solid #ef3340}.cio-alert.final-alert{min-height:74px;border:1px solid #43262c;border-radius:11px;margin-bottom:7px;background:#110c0e}.cio-alert.final-alert small{margin-top:3px}
+
+/* Quatro cards executivos principais */
+body:has(.cio-title) .cio-kpi{min-height:176px;padding:14px 15px 12px}
+body:has(.cio-title) .cio-kpi-value{font-size:1.62rem}
+@media(max-width:900px){body:has(.cio-title) .cio-kpi{min-height:164px}}
 </style>
 <div class="portal-head portal-head-base">
   <div class="portal-brand">
