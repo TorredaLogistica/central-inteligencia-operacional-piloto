@@ -496,75 +496,71 @@ def card_executivo(titulo,valor,detalhe,classe=""):
 
 
 def exibir_visao_geral():
-    # Valores demonstrativos para validação do layout executivo.
-    kpis = [
-        ("📦", "VOLUME RECEBIDO", "1,28 MM", "Unidades", "▲ 8,6% vs mês anterior", "#18b84b"),
-        ("🚚", "EXPEDIÇÕES REALIZADAS", "1,14 MM", "Unidades", "▲ 7,3% vs mês anterior", "#18b84b"),
-        ("💲", "CUSTO LOGÍSTICO", "R$ 12,47 MM", "Acumulado no mês", "▼ 4,2% vs mês anterior", "#e53935"),
-        ("🕒", "SLA OPERACIONAL", "96,8%", "No mês", "▲ 2,1 p.p. vs mês anterior", "#18b84b"),
-        ("🔄", "ÍNDICE DE REVERSA", "2,45%", "Do total de expedições", "▼ 0,35 p.p. vs mês anterior", "#18b84b"),
-        ("🙂", "NPS INTERNO", "89", "Satisfação", "▲ 3 pontos vs mês anterior", "#18b84b"),
+    perfis_cd = {
+        "Consolidado": {"volume":1280000,"expedicoes":1140000,"custo":12.47,"sla":96.8,"reversa":2.45,"nps":89,"fator":1.00},
+        "CD Jundiaí": {"volume":245890,"expedicoes":226180,"custo":2.31,"sla":98.7,"reversa":1.92,"nps":94,"fator":0.23},
+        "CD Cajamar": {"volume":214335,"expedicoes":195420,"custo":2.08,"sla":97.1,"reversa":2.31,"nps":91,"fator":0.20},
+        "CD Betim": {"volume":172889,"expedicoes":153760,"custo":1.86,"sla":95.4,"reversa":2.71,"nps":86,"fator":0.16},
+        "CD Curitiba": {"volume":138371,"expedicoes":121890,"custo":1.48,"sla":95.0,"reversa":2.88,"nps":84,"fator":0.13},
+        "CD Goiânia": {"volume":125667,"expedicoes":109420,"custo":1.34,"sla":94.3,"reversa":3.12,"nps":82,"fator":0.12},
+    }
+    t1,t2,t3,t4=st.columns([3.0,1.05,1.25,1.15])
+    with t1: st.markdown('<div class="cio-title">Central de Inteligência Operacional</div><div class="cio-subtitle">Gerência de Armazenagem, Triagem e Reversa</div>',unsafe_allow_html=True)
+    with t2: st.markdown('<div class="cio-update">📅 &nbsp; Última atualização:<br><strong>23/11/2026 12:30</strong></div>',unsafe_allow_html=True)
+    with t3: periodo=st.selectbox("Período",["Mês atual (Novembro/2026)","Últimos 3 meses","Últimos 6 meses","Ano 2026"],key="periodo_visao_geral")
+    with t4: cd_selecionado=st.selectbox("Centro de Distribuição",list(perfis_cd.keys()),key="cd_visao_geral")
+    perfil=perfis_cd[cd_selecionado]
+    fmt=lambda v: f"{v/1000000:.2f} MM".replace(".",",") if v>=1000000 else f"{v:,.0f}".replace(",",".")
+    kpis=[
+        ("📦","VOLUME RECEBIDO",fmt(perfil["volume"]),"Unidades","▲ 8,6% vs mês anterior","#18b84b"),
+        ("🚚","EXPEDIÇÕES REALIZADAS",fmt(perfil["expedicoes"]),"Unidades","▲ 7,3% vs mês anterior","#18b84b"),
+        ("💲","CUSTO LOGÍSTICO",f"R$ {perfil['custo']:.2f} MM".replace(".",","),"Acumulado no mês","▼ 4,2% vs mês anterior","#e53935"),
+        ("🕒","SLA OPERACIONAL",f"{perfil['sla']:.1f}%".replace(".",","),"No mês","▲ 2,1 p.p. vs mês anterior","#18b84b"),
+        ("🔄","ÍNDICE DE REVERSA",f"{perfil['reversa']:.2f}%".replace(".",","),"Das expedições","▼ 0,35 p.p. vs mês anterior","#18b84b"),
+        ("🙂","NPS INTERNO",str(perfil["nps"]),"Satisfação","▲ 3 pontos vs mês anterior","#18b84b"),
     ]
-    topo1, topo2, topo3 = st.columns([3.4, 1.15, 1.35])
-    with topo1:
-        st.markdown('<div class="cio-title">Central de Inteligência Operacional</div><div class="cio-subtitle">Gerência de Armazenagem, Triagem e Reversa</div>', unsafe_allow_html=True)
-    with topo2:
-        st.markdown('<div class="cio-update">📅 &nbsp; Última atualização:<br><strong>23/11/2026 12:30</strong></div>', unsafe_allow_html=True)
-    with topo3:
-        periodo = st.selectbox("Período", ["Mês atual (Novembro/2026)", "Últimos 3 meses", "Últimos 6 meses", "Ano 2026"], key="periodo_visao_geral")
-    st.markdown('<div class="demo-strip">DADOS DEMONSTRATIVOS PARA VALIDAÇÃO DO LAYOUT</div>', unsafe_allow_html=True)
+    contexto="Visão consolidada de todos os CDs" if cd_selecionado=="Consolidado" else f"Resumo filtrado para {cd_selecionado}"
+    st.markdown(f'<div class="demo-strip">DADOS DEMONSTRATIVOS • {html.escape(contexto)}</div>',unsafe_allow_html=True)
+    for col,item in zip(st.columns(6,gap="small"),kpis):
+        with col:
+            icone,titulo,valor,unidade,variacao,cor=item
+            st.markdown(f'<div class="cio-kpi"><div class="cio-kpi-head"><span class="cio-kpi-icon">{icone}</span><span class="cio-kpi-title">{titulo}</span></div><div class="cio-kpi-value">{valor}</div><div class="cio-kpi-unit">{unidade}</div><div class="cio-kpi-change" style="color:{cor}">{variacao}</div><div class="cio-spark">⌁╱⌁╱╲╱</div></div>',unsafe_allow_html=True)
 
-    for coluna, item in zip(st.columns(6, gap="small"), kpis):
-        with coluna:
-            icone, titulo, valor, unidade, variacao, cor = item
-            st.markdown(
-                f'<div class="cio-kpi"><div class="cio-kpi-head"><span class="cio-kpi-icon">{icone}</span><span class="cio-kpi-title">{titulo}</span></div>'
-                f'<div class="cio-kpi-value">{valor}</div><div class="cio-kpi-unit">{unidade}</div>'
-                f'<div class="cio-kpi-change" style="color:{cor}">{variacao}</div><div class="cio-spark">⌁╱⌁╱╲╱</div></div>',
-                unsafe_allow_html=True,
-            )
-
-    regioes = pd.DataFrame({"Região":["Sudeste","Sul","Nordeste","Centro-Oeste","Norte"],"Participação":[45,19,18,11,7]})
-    cds = pd.DataFrame({"CD":["CD Jundiaí","CD Cajamar","CD Betim","CD Curitiba","CD Goiânia"],"Volume":[245890,214335,172889,138371,125667],"SLA":[98.7,97.1,95.4,95.0,94.3],"Reversa":[1.92,2.31,2.71,2.88,3.12]})
-    alertas = [
-        ("🔴","SLA abaixo da meta no CD Betim","SLA: 95,4% (Meta: 97%)","Há 2h"),
-        ("🟠","Aumento do índice de reversa no CD Goiânia","Índice: 3,12% (Meta: < 2,5%)","Há 3h"),
-        ("🟠","Pendências de faturamento com transportadoras","Total: R$ 1,27 MM","Há 4h"),
-        ("🔴","Atraso em pedidos Canal Vermelho","Pedidos em atraso: 1.248","Há 5h"),
-        ("🟠","Estoque de usados acima do limite no CD Curitiba","Estoque: 12.540 un.","Há 6h"),
-    ]
-    c1,c2,c3 = st.columns([1.05,1,1.08], gap="medium")
+    cds=pd.DataFrame({"CD":["CD Jundiaí","CD Cajamar","CD Betim","CD Curitiba","CD Goiânia"],"Volume":[245890,214335,172889,138371,125667],"SLA":[98.7,97.1,95.4,95.0,94.3],"Reversa":[1.92,2.31,2.71,2.88,3.12]})
+    regioes=pd.DataFrame({"Região":["Sudeste","Sul","Nordeste","Centro-Oeste","Norte"],"Participação":[45,19,18,11,7]})
+    alertas_base=[("🔴","SLA abaixo da meta","SLA inferior à meta operacional","Há 2h"),("🟠","Aumento do índice de reversa","Índice acima da referência","Há 3h"),("🟠","Pendências de faturamento","Valores aguardando tratamento","Há 4h"),("🔴","Atraso em pedidos Canal Vermelho","Pedidos críticos em atraso","Há 5h"),("🟠","Estoque de usados acima do limite","Volume acima da referência","Há 6h")]
+    c1,c2,c3=st.columns([1.05,1,1.08],gap="medium")
     with c1:
-        st.markdown('<div class="cio-panel-title">OPERAÇÃO POR REGIÃO</div><div class="cio-panel-sub">Volume recebido • participação no mês</div>', unsafe_allow_html=True)
-        chart = alt.Chart(regioes).mark_bar(cornerRadiusEnd=4, color="#b61923").encode(
-            x=alt.X("Participação:Q", axis=alt.Axis(labelColor="#cbd5df", gridColor="#362329", title=None)),
-            y=alt.Y("Região:N", sort="-x", axis=alt.Axis(labelColor="#f2f4f7", title=None)),
-            tooltip=["Região", "Participação"]
-        ).properties(height=300).configure_view(stroke=None).configure(background="#100c0f")
-        st.altair_chart(chart, use_container_width=True)
+        st.markdown(f'<div class="cio-panel-title">OPERAÇÃO POR REGIÃO</div><div class="cio-panel-sub">{html.escape(contexto)}</div>',unsafe_allow_html=True)
+        chart=alt.Chart(regioes).mark_bar(cornerRadiusEnd=4,color="#b61923").encode(x=alt.X("Participação:Q",axis=alt.Axis(labelColor="#cbd5df",gridColor="#362329",title=None)),y=alt.Y("Região:N",sort="-x",axis=alt.Axis(labelColor="#f2f4f7",title=None)),tooltip=["Região","Participação"]).properties(height=300).configure_view(stroke=None).configure(background="#100c0f")
+        st.altair_chart(chart,use_container_width=True)
     with c2:
-        st.markdown('<div class="cio-panel-title">RANKING DOS CENTROS DE DISTRIBUIÇÃO</div><div class="cio-panel-sub">Desempenho consolidado no mês</div>', unsafe_allow_html=True)
-        df_cd=cds.copy(); df_cd["Volume recebido"]=df_cd["Volume"].map(lambda x:f"{x:,.0f}".replace(",",".")); df_cd["SLA"] = df_cd["SLA"].map(lambda x:f"{x:.1f}%".replace(".",",")); df_cd["Índice reversa"] = df_cd["Reversa"].map(lambda x:f"{x:.2f}%".replace(".",","))
-        st.dataframe(df_cd[["CD","Volume recebido","SLA","Índice reversa"]], use_container_width=True, hide_index=True, height=300)
+        st.markdown(f'<div class="cio-panel-title">CENTROS DE DISTRIBUIÇÃO</div><div class="cio-panel-sub">{html.escape(contexto)}</div>',unsafe_allow_html=True)
+        df_cd=cds.copy() if cd_selecionado=="Consolidado" else cds[cds["CD"]==cd_selecionado].copy()
+        df_cd["Volume recebido"]=df_cd["Volume"].map(lambda x:f"{x:,.0f}".replace(",","."));df_cd["SLA"]=df_cd["SLA"].map(lambda x:f"{x:.1f}%".replace(".",","));df_cd["Índice reversa"]=df_cd["Reversa"].map(lambda x:f"{x:.2f}%".replace(".",","))
+        st.dataframe(df_cd[["CD","Volume recebido","SLA","Índice reversa"]],use_container_width=True,hide_index=True,height=300)
     with c3:
-        st.markdown('<div class="cio-panel-title">ALERTAS E DESVIOS CRÍTICOS <span class="alert-count">12</span></div>', unsafe_allow_html=True)
-        for icone,titulo,detalhe,tempo in alertas:
-            st.markdown(f'<div class="cio-alert"><span class="cio-alert-icon">{icone}</span><span><b>{titulo}</b><small>{detalhe}</small></span><em>{tempo}</em></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="cio-panel-title">ALERTAS E DESVIOS CRÍTICOS <span class="alert-count">{len(alertas_base)}</span></div>',unsafe_allow_html=True)
+        for icone,titulo,detalhe,tempo in alertas_base:
+            st.markdown(f'<div class="cio-alert"><span class="cio-alert-icon">{icone}</span><span><b>{titulo}</b><small>{detalhe} • {html.escape(cd_selecionado)}</small></span><em>{tempo}</em></div>',unsafe_allow_html=True)
 
-    tendencias = pd.DataFrame({"Semana":["S1","S2","S3","S4","S5"],"SLA":[96.2,96.1,96.3,96.6,96.8],"Reversa":[2.70,2.65,2.58,2.42,2.45],"Custo":[12.0,12.1,12.15,12.3,12.47]}).melt("Semana",var_name="Indicador",value_name="Valor")
-    p1,p2,p3=st.columns([1.05,1,1],gap="medium")
+    fator=perfil["fator"]
+    meses=["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov"]
+    mensal=pd.DataFrame({"Mês":meses,"Recebido":[round(v*fator) for v in [620,1030,2930,420,360,380,470,1230,2940,590,1060]],"Expedido":[round(v*fator) for v in [510,910,2650,390,320,350,430,1100,2680,540,980]]}).melt("Mês",var_name="Indicador",value_name="Quantidade")
+    tendencias=pd.DataFrame({"Semana":["S1","S2","S3","S4","S5"],"SLA":[perfil["sla"]-0.6,perfil["sla"]-0.5,perfil["sla"]-0.3,perfil["sla"]-0.2,perfil["sla"]],"Reversa":[perfil["reversa"]+0.25,perfil["reversa"]+0.20,perfil["reversa"]+0.13,perfil["reversa"]-0.03,perfil["reversa"]]}).melt("Semana",var_name="Indicador",value_name="Valor")
+    p1,p2,p3=st.columns([1.1,1,1],gap="medium")
     with p1:
-        st.markdown('<div class="cio-panel-title">PROJETOS E BENEFÍCIOS FINANCEIROS</div>', unsafe_allow_html=True)
-        st.markdown('<div class="project-grid"><div><b>P0 · Críticos</b><strong>7</strong><small>72% concluídos</small></div><div><b>P1 · Altos</b><strong>11</strong><small>58% concluídos</small></div><div><b>P2 · Médios</b><strong>9</strong><small>34% concluídos</small></div><div><b>P3 · Baixos</b><strong>6</strong><small>21% concluídos</small></div></div>',unsafe_allow_html=True)
-        st.markdown('<div class="financial-row"><div><small>REALIZADO</small><b>R$ 8,27 MM</b></div><div><small>PREVISTO</small><b>R$ 10,60 MM</b></div><div><small>FORECAST</small><b>R$ 12,90 MM</b></div></div>',unsafe_allow_html=True)
+        st.markdown('<div class="cio-panel-title">VOLUME MENSAL</div>',unsafe_allow_html=True)
+        chart=alt.Chart(mensal).mark_bar().encode(x=alt.X("Mês:N",sort=meses,axis=alt.Axis(labelColor="#cbd5df",title=None)),y=alt.Y("Quantidade:Q",axis=alt.Axis(labelColor="#cbd5df",gridColor="#362329",title=None)),color=alt.Color("Indicador:N",scale=alt.Scale(range=["#e52432","#f5a623"]),legend=alt.Legend(labelColor="#fff",title=None)),xOffset="Indicador:N",tooltip=["Mês","Indicador","Quantidade"]).properties(height=255).configure_view(stroke=None).configure(background="#100c0f")
+        st.altair_chart(chart,use_container_width=True)
     with p2:
         st.markdown('<div class="cio-panel-title">TENDÊNCIA DOS PRINCIPAIS INDICADORES</div>',unsafe_allow_html=True)
-        line=alt.Chart(tendencias).mark_line(point=True,strokeWidth=3).encode(x=alt.X("Semana:N",axis=alt.Axis(labelColor="#cbd5df",title=None)),y=alt.Y("Valor:Q",axis=alt.Axis(labelColor="#cbd5df",gridColor="#362329",title=None),scale=alt.Scale(zero=False)),color=alt.Color("Indicador:N",scale=alt.Scale(range=["#f42b35","#f5b62c","#7c858d"]),legend=alt.Legend(labelColor="#e6e8eb",title=None)),tooltip=["Semana","Indicador","Valor"]).properties(height=260).configure_view(stroke=None).configure(background="#100c0f")
+        line=alt.Chart(tendencias).mark_line(point=True,strokeWidth=3).encode(x=alt.X("Semana:N",axis=alt.Axis(labelColor="#cbd5df",title=None)),y=alt.Y("Valor:Q",axis=alt.Axis(labelColor="#cbd5df",gridColor="#362329",title=None),scale=alt.Scale(zero=False)),color=alt.Color("Indicador:N",scale=alt.Scale(range=["#f42b35","#f5b62c"]),legend=alt.Legend(labelColor="#fff",title=None)),tooltip=["Semana","Indicador","Valor"]).properties(height=255).configure_view(stroke=None).configure(background="#100c0f")
         st.altair_chart(line,use_container_width=True)
     with p3:
-        st.markdown('<div class="cio-panel-title">DESTAQUES DA SEMANA</div>',unsafe_allow_html=True)
-        destaques=["SLA acima da meta em 15 dos 17 CDs","Redução de 5,2% no índice de reversa","Projeto de automação de inventário concluído","Economia de R$ 620 mil em fretes","Início da implantação WMS no CD Jundiaí","Acompanhamento de atrasos no Canal Vermelho"]
-        for i,texto in enumerate(destaques): st.markdown(f'<div class="cio-highlight">{"✅" if i<4 else "➡️"} {texto}</div>',unsafe_allow_html=True)
+        st.markdown('<div class="cio-panel-title">DESTAQUES DA OPERAÇÃO</div>',unsafe_allow_html=True)
+        destaques=[f"SLA atual de {str(perfil['sla']).replace('.',',')}%",f"Índice de reversa em {str(perfil['reversa']).replace('.',',')}%",f"{fmt(perfil['volume'])} unidades recebidas",f"{fmt(perfil['expedicoes'])} expedições realizadas","Dados simulados para validação do filtro"]
+        for i,texto in enumerate(destaques):st.markdown(f'<div class="cio-highlight">{"✅" if i<4 else "ℹ️"} {texto}</div>',unsafe_allow_html=True)
 
 
 def exibir_atualizacoes():
@@ -1787,6 +1783,10 @@ body:not(:has(.cio-title)) [data-testid="stVerticalBlockBorderWrapper"]{box-shad
   [data-testid="stAppViewContainer"] h1{font-size:1.55rem!important}
   [data-testid="stAppViewContainer"] h2{font-size:1.25rem!important}
 }
+
+/* Filtro de CD na Visao Geral */
+body:has(.cio-title) [data-testid="stSelectbox"] label{color:#f3f5f7!important;font-size:.65rem!important;font-weight:700!important}
+body:has(.cio-title) [data-testid="stSelectbox"]>div>div{min-height:40px!important}
 </style>
 <div class="portal-head portal-head-base">
   <div class="portal-brand">
