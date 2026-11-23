@@ -556,6 +556,23 @@ def exibir_visao_geral():
             icone,titulo,valor,unidade,variacao,cor=item
             st.markdown(f'<div class="cio-kpi"><div class="cio-kpi-head"><span class="cio-kpi-icon">{icone}</span><span class="cio-kpi-title">{titulo}</span></div><div class="cio-kpi-value">{valor}</div><div class="cio-kpi-unit">{unidade}</div><div class="cio-kpi-change" style="color:{cor}">{variacao}</div><div class="cio-spark">⌁╱⌁╱╲╱</div></div>',unsafe_allow_html=True)
 
+    cds=pd.DataFrame({
+        "CD":["Campinas","Rio de Janeiro","Brasília","Barueri","Contagem","Palhoça","Jaboatão","Manaus","Salvador"],
+        "Volume":[238450,205320,141880,186750,152460,98740,88760,69340,98290],
+        "SLA":[98.2,96.7,96.1,97.4,95.6,95.2,94.8,93.9,95.0],
+        "Reversa":[1.88,2.38,2.42,2.05,2.72,2.81,2.96,3.18,2.89],
+        "Ocupação":[84,78,73,88,91,76,82,94,80],
+    })
+    cds["Volume"]=(cds["Volume"]*fator_empresa).round().astype(int)
+    cds["Score"]=(cds["SLA"]-(cds["Reversa"]*1.9)-((cds["Ocupação"]-82).abs()*0.10)).round(1)
+    cds["Faixa desempenho"] = cds["Score"].apply(lambda v: "Excelente" if v >= 91 else ("Atenção" if v < 88 else "Estável"))
+    cds["Faixa ocupação"] = cds["Ocupação"].apply(lambda v: "Crítica" if v > 90 else ("Adequada" if v >= 75 else "Baixa"))
+    cds=cds.sort_values("Score",ascending=False).reset_index(drop=True)
+    cds["Rank"]=range(1,len(cds)+1)
+    empresas_df=pd.DataFrame({"Empresa":["Claro Móvel","Claro TV","Embratel","NET","Claro Fixo"],"Score":[94.6,90.1,92.7,87.9,89.4]})
+    melhor_cd=cds.iloc[0]; pior_cd=cds.iloc[-1]
+    melhor_empresa=empresas_df.loc[empresas_df["Score"].idxmax()]; pior_empresa=empresas_df.loc[empresas_df["Score"].idxmin()]
+
     d1,d2,d3,d4=st.columns(4,gap="small")
     decisoes=[
         (d1,"🏆 MELHOR CD",melhor_cd["CD"],f"Score {melhor_cd['Score']:.1f} • SLA {melhor_cd['SLA']:.1f}%","good"),
@@ -613,22 +630,6 @@ def exibir_visao_geral():
     fcst_html="".join(f'<div class="sla-mini {classe}"><span>{titulo}</span><strong>{valor}</strong><small>{descricao}</small></div>' for titulo,valor,descricao,classe in fcst_items)
     st.markdown(f'<div class="sla-summary fcst-summary"><div class="sla-summary-head"><span>🔢 FORECAST E REALIZADO</span><small>{html.escape(contexto)}</small></div><div class="sla-summary-grid">{fcst_html}</div></div>',unsafe_allow_html=True)
 
-    cds=pd.DataFrame({
-        "CD":["Campinas","Rio de Janeiro","Brasília","Barueri","Contagem","Palhoça","Jaboatão","Manaus","Salvador"],
-        "Volume":[238450,205320,141880,186750,152460,98740,88760,69340,98290],
-        "SLA":[98.2,96.7,96.1,97.4,95.6,95.2,94.8,93.9,95.0],
-        "Reversa":[1.88,2.38,2.42,2.05,2.72,2.81,2.96,3.18,2.89],
-        "Ocupação":[84,78,73,88,91,76,82,94,80],
-    })
-    cds["Volume"]=(cds["Volume"]*fator_empresa).round().astype(int)
-    cds["Score"]=(cds["SLA"]-(cds["Reversa"]*1.9)-((cds["Ocupação"]-82).abs()*0.10)).round(1)
-    cds["Faixa desempenho"] = cds["Score"].apply(lambda v: "Excelente" if v >= 91 else ("Atenção" if v < 88 else "Estável"))
-    cds["Faixa ocupação"] = cds["Ocupação"].apply(lambda v: "Crítica" if v > 90 else ("Adequada" if v >= 75 else "Baixa"))
-    cds=cds.sort_values("Score",ascending=False).reset_index(drop=True)
-    cds["Rank"]=range(1,len(cds)+1)
-    empresas_df=pd.DataFrame({"Empresa":["Claro Móvel","Claro TV","Embratel","NET","Claro Fixo"],"Score":[94.6,90.1,92.7,87.9,89.4]})
-    melhor_cd=cds.iloc[0]; pior_cd=cds.iloc[-1]
-    melhor_empresa=empresas_df.loc[empresas_df["Score"].idxmax()]; pior_empresa=empresas_df.loc[empresas_df["Score"].idxmin()]
 
     alertas_base=[("🔴","SLA abaixo da meta","SLA inferior à meta operacional","Há 2h"),("🟠","Ocupação crítica","CD acima de 90% de ocupação","Há 3h"),("🟠","Pendências de faturamento","Valores aguardando tratamento","Há 4h"),("🔴","Atraso em pedidos Canal Vermelho","Pedidos críticos em atraso","Há 5h")]
     c1,c2,c3=st.columns([1.0,1.18,1.0],gap="medium")
