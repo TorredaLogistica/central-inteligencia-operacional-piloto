@@ -15,6 +15,7 @@ from io import BytesIO
 
 import streamlit as st
 import pandas as pd
+import altair as alt
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
@@ -495,47 +496,77 @@ def card_executivo(titulo,valor,detalhe,classe=""):
 
 
 def exibir_visao_geral():
-    catalogo=catalogo_visao_geral(); df_cat=pd.DataFrame(catalogo)
-    fim=datetime.now(FUSO_BRASILIA).date(); inicio=fim-timedelta(days=29)
-    acessos=consultar_acessos_indicadores(inicio,fim); df=pd.DataFrame(acessos)
-    total=len(catalogo); disponiveis=sum(x["Situação"]=="Disponível" for x in catalogo); revisar=sum(x["Situação"]=="Revisar atualização" for x in catalogo); construcao=sum(x["Situação"]=="Em construção" for x in catalogo)
-    st.markdown('<div class="overview-title">Visão Geral Operacional</div>',unsafe_allow_html=True)
-    st.caption("Resumo executivo da disponibilidade, atualização e utilização dos indicadores da Central.")
-    for col,dados in zip(st.columns(5,gap="small"),[("Indicadores",total,"catálogo da Central",""),("Disponíveis",disponiveis,"prontos para consulta","positivo"),("Revisar",revisar,"atualização acima de 45 dias","alerta"),("Em construção",construcao,"ainda não disponíveis",""),("Áreas ativas",len({x['Área'] for x in catalogo if x['Situação']!='Em construção'}),"com painéis publicados","")]):
-        with col: card_executivo(*dados)
-    st.markdown("### Utilização da Central")
-    usuarios=len({x.get("usuario_id") for x in acessos if x.get("usuario_id") is not None}); lider="Sem acessos"; qtd=0
-    if not df.empty:
-        ranking=df.groupby("indicador").size().sort_values(ascending=False); lider=str(ranking.index[0]); qtd=int(ranking.iloc[0])
-    for col,dados in zip(st.columns([1,1,2],gap="small"),[("Acessos em 30 dias",len(acessos),"cliques registrados",""),("Usuários distintos",usuarios,"com acesso registrado",""),("Indicador mais acessado",lider,f"{qtd} acesso(s)","destaque")]):
-        with col: card_executivo(*dados)
-    g1,g2=st.columns([1.15,1],gap="large")
-    with g1:
-        st.markdown("#### Indicadores mais acessados")
-        if df.empty: st.info("Ainda não há acessos registrados nos últimos 30 dias.")
-        else: st.bar_chart(df.groupby("indicador").size().sort_values(ascending=False).head(8).rename("Acessos"),horizontal=True,color="#d52b1e")
-    with g2:
-        st.markdown("#### Acessos por dia")
-        if df.empty: st.info("A evolução aparecerá após os primeiros acessos.")
-        else:
-            df["Data"]=pd.to_datetime(df["acessado_em"],utc=True,errors="coerce").dt.tz_convert(FUSO_BRASILIA).dt.date
-            serie=df.groupby("Data").size().rename("Acessos"); intervalo=pd.date_range(inicio,fim,freq="D").date
-            st.line_chart(serie.reindex(intervalo,fill_value=0),color="#d52b1e")
-    st.markdown("### Saúde do catálogo")
-    c1,c2=st.columns([1.25,1],gap="large")
-    with c1:
-        resumo=df_cat.groupby(["Área","Situação"]).size().rename("Quantidade").reset_index().pivot(index="Área",columns="Situação",values="Quantidade").fillna(0)
-        st.bar_chart(resumo)
-    with c2:
-        st.markdown("#### Pontos de atenção")
-        if revisar: st.warning(f"{revisar} indicador(es) precisam de revisão da atualização.")
-        if construcao: st.info(f"{construcao} indicador(es) estão em construção.")
-        if not revisar and not construcao: st.success("Catálogo atualizado e disponível.")
-        st.markdown("- Painéis com mais de 45 dias entram em revisão.\n- Datas são mantidas manualmente no catálogo.\n- Os detalhes continuam na opção **Indicadores**.")
-    st.markdown("### Acesso rápido")
-    atalhos=[x for x in catalogo if x["Situação"]=="Disponível"][:4]
-    for col,item in zip(st.columns(4,gap="medium"),atalhos):
-        with col: st.markdown(f'<div class="quick-card"><div class="quick-icon">{html.escape(item["Ícone"])}</div><div class="quick-name">{html.escape(item["Indicador"])}</div><div class="quick-meta">{html.escape(item["Área"])} · {html.escape(item["Última atualização"])}</div></div>',unsafe_allow_html=True)
+    resumos = [
+        ("Separação e Faturamento", "96,4%", "SLA consolidado", "815.020 pedidos processados", "#e53935"),
+        ("Pedidos para LPs", "12.480", "Pedidos no período", "94,8% dentro do prazo", "#1e88e5"),
+        ("Resultado do DRE", "R$ 8,7 mi", "Resultado acumulado", "+4,2% versus planejado", "#43a047"),
+        ("Valores dos EAs", "R$ 12,8 mi", "Estoque consolidado", "11 estruturas monitoradas", "#8e24aa"),
+        ("Atendimento de OVs nos TLs", "93,1%", "OVs atendidas", "1.146 OVs no período", "#00897b"),
+        ("Taxa de Ocupação dos CDs", "78,6%", "Ocupação média", "2 CDs acima de 85%", "#fb8c00"),
+        ("Pedidos Canal Vermelho", "127", "Pedidos críticos", "18 fora do prazo", "#d81b60"),
+        ("NFs não Agrupadas", "342", "Notas pendentes", "R$ 1,9 mi em análise", "#5e35b1"),
+        ("Faturas dos OPLs", "94,7%", "Faturas processadas", "23 pendências abertas", "#3949ab"),
+        ("Recebimento de Usados", "1.284", "Materiais recebidos", "91,2% concluídos", "#7cb342"),
+        ("Nível de Serviços dos OPLs", "95,3%", "Nível de serviço", "Meta operacional: 95%", "#00acc1"),
+        ("Forecast e Realizado", "98,1%", "Aderência ao forecast", "Desvio de 1,9%", "#f4511e"),
+        ("Simulação de Pedidos", "6.420", "Pedidos simulados", "3 cenários disponíveis", "#6d4c41"),
+    ]
+    cab1, cab2 = st.columns([4, 1])
+    with cab1:
+        st.markdown('<div class="general-dashboard-title">Visão Geral da Operação</div>', unsafe_allow_html=True)
+        st.markdown('<div class="general-dashboard-subtitle">Resumo integrado dos indicadores logísticos</div>', unsafe_allow_html=True)
+    with cab2:
+        st.markdown('<div class="demo-badge">DADOS DEMONSTRATIVOS</div>', unsafe_allow_html=True)
+    st.info("Os valores desta versão são demonstrativos para validação do layout. Na próxima etapa, cada card será conectado às colunas e regras das bases oficiais.")
+    st.markdown('<div class="general-section-title">Resumo por indicador</div>', unsafe_allow_html=True)
+    for inicio in range(0, len(resumos), 5):
+        for coluna, item in zip(st.columns(5, gap="small"), resumos[inicio:inicio + 5]):
+            with coluna:
+                indicador, valor, rotulo, detalhe, cor = item
+                card = (
+                    f'<div class="summary-indicator-card" style="--accent:{cor}">'
+                    f'<div class="summary-indicator-name">{html.escape(indicador)}</div>'
+                    f'<div class="summary-indicator-value">{html.escape(valor)}</div>'
+                    f'<div class="summary-indicator-label">{html.escape(rotulo)}</div>'
+                    f'<div class="summary-indicator-detail">{html.escape(detalhe)}</div></div>'
+                )
+                st.markdown(card, unsafe_allow_html=True)
+    meses = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov"]
+    df_mensal = pd.DataFrame({"Mês": meses, "Pedidos": [62,103,293,42,36,38,47,123,294,59,106], "Concluídos": [15,27,66,9,8,10,13,23,65,15,27]}).melt("Mês", var_name="Série", value_name="Quantidade")
+    status_df = pd.DataFrame({"Status": ["Concluídos", "Em execução", "Pendentes", "Atrasados"], "Quantidade": [743,318,315,105]})
+    st.markdown('<div class="general-section-title">Desempenho operacional</div>', unsafe_allow_html=True)
+    graf1, graf2 = st.columns([2, 1], gap="medium")
+    with graf1:
+        st.markdown('<div class="chart-panel-title">Volume mensal consolidado</div>', unsafe_allow_html=True)
+        chart = alt.Chart(df_mensal).mark_bar(cornerRadiusTopLeft=3, cornerRadiusTopRight=3).encode(
+            x=alt.X("Mês:N", sort=meses, axis=alt.Axis(labelColor="#dbe2ea", title=None)),
+            y=alt.Y("Quantidade:Q", axis=alt.Axis(labelColor="#dbe2ea", gridColor="#394553", title=None)),
+            color=alt.Color("Série:N", scale=alt.Scale(domain=["Pedidos", "Concluídos"], range=["#ff3b3b", "#2196f3"]), legend=alt.Legend(labelColor="#e8edf2", title=None, orient="top")),
+            xOffset="Série:N", tooltip=["Mês", "Série", "Quantidade"]
+        ).properties(height=290).configure_view(stroke=None).configure(background="#19232e")
+        st.altair_chart(chart, use_container_width=True)
+    with graf2:
+        st.markdown('<div class="chart-panel-title">Distribuição por status</div>', unsafe_allow_html=True)
+        donut = alt.Chart(status_df).mark_arc(innerRadius=68, outerRadius=112).encode(
+            theta=alt.Theta("Quantidade:Q"),
+            color=alt.Color("Status:N", scale=alt.Scale(domain=["Concluídos","Em execução","Pendentes","Atrasados"], range=["#00c853","#c6ff00","#ff9800","#ff1744"]), legend=alt.Legend(labelColor="#e8edf2", title=None, orient="bottom")),
+            tooltip=["Status", "Quantidade"]
+        ).properties(height=290).configure_view(stroke=None).configure(background="#19232e")
+        st.altair_chart(donut, use_container_width=True)
+    detalhes = [
+        ("Principais pendências", pd.DataFrame({"Categoria":["Canal Vermelho","NFs não agrupadas","Faturas OPLs","Recebimento"],"Quantidade":[127,342,23,113]}), "#ff4b4b"),
+        ("Indicadores abaixo da meta", pd.DataFrame({"Indicador":["Ocupação CDs","Atendimento OVs","Recebimento","LPs"],"Desvio":[8.6,6.9,3.8,2.2]}), "#ab68c5"),
+        ("Aderência por frente", pd.DataFrame({"Frente":["Forecast","OPLs","Faturamento","DRE"],"Percentual":[98.1,95.3,96.4,104.2]}), "#26a69a"),
+    ]
+    for coluna, (titulo, base, cor) in zip(st.columns(3, gap="medium"), detalhes):
+        with coluna:
+            st.markdown(f'<div class="chart-panel-title">{titulo}</div>', unsafe_allow_html=True)
+            xcol, ycol = base.columns[1], base.columns[0]
+            chart = alt.Chart(base).mark_bar(cornerRadiusEnd=4, color=cor).encode(
+                x=alt.X(f"{xcol}:Q", axis=alt.Axis(labelColor="#dbe2ea", gridColor="#394553", title=None)),
+                y=alt.Y(f"{ycol}:N", sort="-x", axis=alt.Axis(labelColor="#dbe2ea", title=None)), tooltip=list(base.columns)
+            ).properties(height=220).configure_view(stroke=None).configure(background="#19232e")
+            st.altair_chart(chart, use_container_width=True)
 
 
 def exibir_atualizacoes():
@@ -1666,6 +1697,10 @@ div[data-testid="column"]:has([class*="st-key-card_indicador_"]:hover) .card-ind
 .overview-kpi.positivo{border-top-color:#35a853}.overview-kpi.alerta{border-top-color:#ef8b31}.overview-kpi.destaque{border-top-color:#d52b1e;background:linear-gradient(145deg,#fff,#fff5f2)}
 .overview-kpi-label{font-size:.72rem;color:#69707d;text-transform:uppercase;font-weight:750}.overview-kpi-value{font-size:1.45rem;color:#202633;font-weight:850;line-height:1.15;margin:8px 0 4px;overflow-wrap:anywhere}.overview-kpi-detail{font-size:.72rem;color:#707784}
 .quick-card{height:122px;padding:15px;border-radius:15px;background:#fff;border:1px solid #e4e6e9;border-top:4px solid #ed5b35;box-shadow:0 7px 18px rgba(35,42,55,.07)}.quick-icon{font-size:1.25rem}.quick-name{font-size:.88rem;font-weight:820;color:#202633;margin:8px 0 7px}.quick-meta{font-size:.68rem;color:#6b7280}
+
+/* Painel executivo escuro inspirado no modelo de referência */
+.general-dashboard-title{font-size:1.7rem;color:#202633;font-weight:850;line-height:1.15;margin:.2rem 0}.general-dashboard-subtitle{font-size:.78rem;color:#697481}.demo-badge{margin-top:8px;padding:8px 10px;border-radius:8px;background:#8c10d4;color:#fff;text-align:center;font-size:.66rem;font-weight:850;letter-spacing:.4px}
+.general-section-title{font-size:1.03rem;color:#202633;font-weight:820;margin:18px 0 8px;padding-left:9px;border-left:4px solid #e53935}.summary-indicator-card{min-height:148px;border:1px solid #7f8a95;border-top:4px solid var(--accent);border-radius:14px;background:#1a2530;padding:13px 12px;box-shadow:0 5px 14px rgba(0,0,0,.22);box-sizing:border-box}.summary-indicator-name{font-size:.72rem;color:#e9eef3;font-weight:760;line-height:1.2;min-height:34px}.summary-indicator-value{font-size:1.55rem;color:#fff;font-weight:900;margin:7px 0 3px;line-height:1}.summary-indicator-label{font-size:.68rem;color:#c9d2db;font-weight:600}.summary-indicator-detail{font-size:.61rem;color:#8fa0ae;margin-top:9px;line-height:1.2}.chart-panel-title{font-size:.86rem;color:#f2f5f8;font-weight:800;background:#19232e;border:1px solid #65717d;border-bottom:0;border-radius:12px 12px 0 0;padding:9px 11px;margin-top:2px}[data-testid="stVegaLiteChart"]{background:#19232e;border:1px solid #65717d;border-top:0;border-radius:0 0 12px 12px;padding:3px 7px 7px;margin-bottom:10px}@media(max-width:900px){.summary-indicator-card{min-height:132px}.summary-indicator-value{font-size:1.3rem}.general-dashboard-title{font-size:1.4rem}}
 </style>
 <div class="portal-head portal-head-base">
   <div class="portal-brand">
