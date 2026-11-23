@@ -497,31 +497,44 @@ def card_executivo(titulo,valor,detalhe,classe=""):
 
 def exibir_visao_geral():
     perfis_cd = {
-        "Consolidado": {"volume":1280000,"expedicoes":1140000,"custo":12.47,"sla":96.8,"reversa":2.45,"nps":89,"fator":1.00},
-        "Campinas": {"volume":238450,"expedicoes":219700,"custo":2.18,"sla":98.2,"reversa":1.88,"nps":93,"fator":0.19},
-        "Rio de Janeiro": {"volume":205320,"expedicoes":186400,"custo":2.04,"sla":96.7,"reversa":2.38,"nps":90,"fator":0.16},
-        "Brasília": {"volume":141880,"expedicoes":126300,"custo":1.42,"sla":96.1,"reversa":2.42,"nps":88,"fator":0.11},
-        "Barueri": {"volume":186750,"expedicoes":169800,"custo":1.81,"sla":97.4,"reversa":2.05,"nps":91,"fator":0.15},
-        "Contagem": {"volume":152460,"expedicoes":134900,"custo":1.55,"sla":95.6,"reversa":2.72,"nps":86,"fator":0.12},
-        "Palhoça": {"volume":98740,"expedicoes":87900,"custo":1.02,"sla":95.2,"reversa":2.81,"nps":85,"fator":0.08},
-        "Jaboatão": {"volume":88760,"expedicoes":77600,"custo":0.94,"sla":94.8,"reversa":2.96,"nps":83,"fator":0.07},
-        "Manaus": {"volume":69340,"expedicoes":59400,"custo":0.82,"sla":93.9,"reversa":3.18,"nps":81,"fator":0.05},
-        "Salvador": {"volume":98290,"expedicoes":87900,"custo":0.99,"sla":95.0,"reversa":2.89,"nps":84,"fator":0.08},
+        "Consolidado": {"volume":1280000,"expedicoes":1140000,"custo":12.47,"sla":96.8,"reversa":2.45,"fator":1.00},
+        "Campinas": {"volume":238450,"expedicoes":219700,"custo":2.18,"sla":98.2,"reversa":1.88,"fator":0.19},
+        "Rio de Janeiro": {"volume":205320,"expedicoes":186400,"custo":2.04,"sla":96.7,"reversa":2.38,"fator":0.16},
+        "Brasília": {"volume":141880,"expedicoes":126300,"custo":1.42,"sla":96.1,"reversa":2.42,"fator":0.11},
+        "Barueri": {"volume":186750,"expedicoes":169800,"custo":1.81,"sla":97.4,"reversa":2.05,"fator":0.15},
+        "Contagem": {"volume":152460,"expedicoes":134900,"custo":1.55,"sla":95.6,"reversa":2.72,"fator":0.12},
+        "Palhoça": {"volume":98740,"expedicoes":87900,"custo":1.02,"sla":95.2,"reversa":2.81,"fator":0.08},
+        "Jaboatão": {"volume":88760,"expedicoes":77600,"custo":0.94,"sla":94.8,"reversa":2.96,"fator":0.07},
+        "Manaus": {"volume":69340,"expedicoes":59400,"custo":0.82,"sla":93.9,"reversa":3.18,"fator":0.05},
+        "Salvador": {"volume":98290,"expedicoes":87900,"custo":0.99,"sla":95.0,"reversa":2.89,"fator":0.08},
     }
-    empresas = {"Consolidado":1.00,"Claro Móvel":0.48,"Claro TV":0.18,"Embratel":0.14,"NET":0.12,"Claro Fixo":0.08}
+    empresas = {
+        "Consolidado":{"fator":1.00,"score":91.8}, "Claro Móvel":{"fator":0.48,"score":94.6},
+        "Claro TV":{"fator":0.18,"score":90.1}, "Embratel":{"fator":0.14,"score":92.7},
+        "NET":{"fator":0.12,"score":87.9}, "Claro Fixo":{"fator":0.08,"score":89.4},
+    }
     t1,t2,t3,t4=st.columns([3.15,1.05,1.15,1.15])
-    with t1: st.markdown('<div class="cio-title">Central de Inteligência Operacional</div><div class="cio-subtitle">Gerência de Armazenagem, Triagem e Reversa</div>',unsafe_allow_html=True)
-    with t2: st.markdown('<div class="cio-update">📅 &nbsp; Última atualização:<br><strong>23/11/2026 12:30</strong></div>',unsafe_allow_html=True)
-    with t3: cd_selecionado=st.selectbox("CD Origem",list(perfis_cd.keys()),key="cd_visao_geral")
-    with t4: empresa_selecionada=st.selectbox("Empresa",list(empresas.keys()),key="empresa_visao_geral")
+    with t1:
+        st.markdown('<div class="cio-title">Central de Inteligência Operacional</div><div class="cio-subtitle">Gerência de Armazenagem, Triagem e Reversa</div>',unsafe_allow_html=True)
+    with t2:
+        st.markdown('<div class="cio-update">📅 &nbsp; Última atualização:<br><strong>23/11/2026 12:30</strong></div>',unsafe_allow_html=True)
+    with t3:
+        cd_selecionado=st.selectbox("CD Origem",list(perfis_cd.keys()),key="cd_visao_geral")
+    with t4:
+        empresa_selecionada=st.selectbox("Empresa",list(empresas.keys()),key="empresa_visao_geral")
+
+    fator_empresa=empresas[empresa_selecionada]["fator"]
     perfil=perfis_cd[cd_selecionado].copy()
-    fator_empresa=empresas[empresa_selecionada]
     perfil["volume"]=round(perfil["volume"]*fator_empresa)
     perfil["expedicoes"]=round(perfil["expedicoes"]*fator_empresa)
-    perfil["custo"]=perfil["custo"]*fator_empresa
-    perfil["fator"]=perfil["fator"]*fator_empresa
-    perfil["dre"]=round((perfil["custo"]*0.126)-(perfil["custo"]*0.041),2)
+    perfil["custo"]*=fator_empresa
+    perfil["fator"]*=fator_empresa
+    perfil["dre"]=round(perfil["custo"]*0.085,2)
     fmt=lambda v: f"{v/1000000:.2f} MM".replace(".",",") if v>=1000000 else f"{v:,.0f}".replace(",",".")
+    contexto_cd="Todos os CDs" if cd_selecionado=="Consolidado" else cd_selecionado
+    contexto_empresa="Todas as empresas" if empresa_selecionada=="Consolidado" else empresa_selecionada
+    contexto=f"{contexto_cd} • {contexto_empresa}"
+
     kpis=[
         ("📦","VOLUME RECEBIDO",fmt(perfil["volume"]),"Unidades","▲ 8,6% vs mês anterior","#18b84b"),
         ("🚚","EXPEDIÇÕES REALIZADAS",fmt(perfil["expedicoes"]),"Unidades","▲ 7,3% vs mês anterior","#18b84b"),
@@ -530,9 +543,6 @@ def exibir_visao_geral():
         ("🔄","ÍNDICE DE REVERSA",f"{perfil['reversa']:.2f}%".replace(".",","),"Das expedições","▼ 0,35 p.p. vs mês anterior","#18b84b"),
         ("💰","RESULTADO DO DRE",f"R$ {perfil['dre']:.2f} MM".replace(".",","),"Resultado operacional","▲ 5,8% vs mês anterior","#18b84b"),
     ]
-    contexto_cd="Todos os CDs" if cd_selecionado=="Consolidado" else cd_selecionado
-    contexto_empresa="Todas as empresas" if empresa_selecionada=="Consolidado" else empresa_selecionada
-    contexto=f"{contexto_cd} • {contexto_empresa}"
     st.markdown(f'<div class="demo-strip">DADOS DEMONSTRATIVOS • {html.escape(contexto)}</div>',unsafe_allow_html=True)
     for col,item in zip(st.columns(6,gap="small"),kpis):
         with col:
@@ -544,45 +554,92 @@ def exibir_visao_geral():
         "Volume":[238450,205320,141880,186750,152460,98740,88760,69340,98290],
         "SLA":[98.2,96.7,96.1,97.4,95.6,95.2,94.8,93.9,95.0],
         "Reversa":[1.88,2.38,2.42,2.05,2.72,2.81,2.96,3.18,2.89],
+        "Ocupação":[84,78,73,88,91,76,82,94,80],
     })
     cds["Volume"]=(cds["Volume"]*fator_empresa).round().astype(int)
-    regioes=pd.DataFrame({"Região":["Sudeste","Sul","Nordeste","Centro-Oeste","Norte"],"Participação":[45,19,18,11,7]})
-    alertas_base=[("🔴","SLA abaixo da meta","SLA inferior à meta operacional","Há 2h"),("🟠","Aumento do índice de reversa","Índice acima da referência","Há 3h"),("🟠","Pendências de faturamento","Valores aguardando tratamento","Há 4h"),("🔴","Atraso em pedidos Canal Vermelho","Pedidos críticos em atraso","Há 5h"),("🟠","Estoque de usados acima do limite","Volume acima da referência","Há 6h")]
-    c1,c2,c3=st.columns([1.05,1,1.08],gap="medium")
+    cds["Score"]=(cds["SLA"]-(cds["Reversa"]*1.9)-((cds["Ocupação"]-82).abs()*0.10)).round(1)
+    cds=cds.sort_values("Score",ascending=False).reset_index(drop=True)
+    cds["Rank"]=range(1,len(cds)+1)
+    empresas_df=pd.DataFrame({"Empresa":["Claro Móvel","Claro TV","Embratel","NET","Claro Fixo"],"Score":[94.6,90.1,92.7,87.9,89.4]})
+    melhor_cd=cds.iloc[0]; pior_cd=cds.iloc[-1]
+    melhor_empresa=empresas_df.loc[empresas_df["Score"].idxmax()]; pior_empresa=empresas_df.loc[empresas_df["Score"].idxmin()]
+
+    d1,d2,d3,d4=st.columns(4,gap="small")
+    decisoes=[
+        (d1,"🏆 MELHOR CD",melhor_cd["CD"],f"Score {melhor_cd['Score']:.1f} • SLA {melhor_cd['SLA']:.1f}%","good"),
+        (d2,"⚠️ CD EM ATENÇÃO",pior_cd["CD"],f"Score {pior_cd['Score']:.1f} • Reversa {pior_cd['Reversa']:.2f}%","bad"),
+        (d3,"🏆 MELHOR EMPRESA",melhor_empresa["Empresa"],f"Score {melhor_empresa['Score']:.1f}","good"),
+        (d4,"⚠️ EMPRESA EM ATENÇÃO",pior_empresa["Empresa"],f"Score {pior_empresa['Score']:.1f}","bad"),
+    ]
+    for col,titulo,nome,detalhe,classe in decisoes:
+        with col:
+            st.markdown(f'<div class="decision-card {classe}"><span>{titulo}</span><strong>{html.escape(str(nome))}</strong><small>{html.escape(str(detalhe))}</small></div>',unsafe_allow_html=True)
+
+    alertas_base=[("🔴","SLA abaixo da meta","SLA inferior à meta operacional","Há 2h"),("🟠","Ocupação crítica","CD acima de 90% de ocupação","Há 3h"),("🟠","Pendências de faturamento","Valores aguardando tratamento","Há 4h"),("🔴","Atraso em pedidos Canal Vermelho","Pedidos críticos em atraso","Há 5h")]
+    c1,c2,c3=st.columns([1.0,1.18,1.0],gap="medium")
     with c1:
-        st.markdown(f'<div class="cio-panel-title">OPERAÇÃO POR REGIÃO</div><div class="cio-panel-sub">{html.escape(contexto)}</div>',unsafe_allow_html=True)
-        chart=alt.Chart(regioes).mark_bar(cornerRadiusEnd=4,color="#b61923").encode(x=alt.X("Participação:Q",axis=alt.Axis(labelColor="#cbd5df",gridColor="#362329",title=None)),y=alt.Y("Região:N",sort="-x",axis=alt.Axis(labelColor="#f2f4f7",title=None)),tooltip=["Região","Participação"]).properties(height=300).configure_view(stroke=None).configure(background="#100c0f")
-        st.altair_chart(chart,use_container_width=True)
+        st.markdown(f'<div class="cio-panel-title">DESEMPENHO DOS CDs</div><div class="cio-panel-sub">Ranking executivo • {html.escape(contexto_empresa)}</div>',unsafe_allow_html=True)
+        perf=cds.sort_values("Score")
+        perf_chart=alt.Chart(perf).mark_bar(cornerRadiusEnd=5).encode(
+            x=alt.X("Score:Q",scale=alt.Scale(domain=[84,94]),axis=alt.Axis(labelColor="#cbd5df",gridColor="#362329",title=None)),
+            y=alt.Y("CD:N",sort=alt.EncodingSortField(field="Score",order="descending"),axis=alt.Axis(labelColor="#f2f4f7",title=None)),
+            color=alt.condition(alt.datum.Score>=91,alt.value("#1dc267"),alt.condition(alt.datum.Score<88,alt.value("#ef3340"),alt.value("#f2a51a"))),
+            tooltip=["Rank","CD","Score","SLA","Reversa","Ocupação"]
+        ).properties(height=300).configure_view(stroke=None).configure(background="#100c0f")
+        st.altair_chart(perf_chart,use_container_width=True)
     with c2:
-        st.markdown(f'<div class="cio-panel-title">CENTROS DE DISTRIBUIÇÃO</div><div class="cio-panel-sub">{html.escape(contexto)}</div>',unsafe_allow_html=True)
+        st.markdown(f'<div class="cio-panel-title">RANKING DOS CENTROS DE DISTRIBUIÇÃO</div><div class="cio-panel-sub">Verde = melhor desempenho • Vermelho = requer ação</div>',unsafe_allow_html=True)
         df_cd=cds.copy() if cd_selecionado=="Consolidado" else cds[cds["CD"]==cd_selecionado].copy()
-        linhas_tabela="".join(
-            f'<tr><td>{html.escape(str(r.CD))}</td><td>{r.Volume:,.0f}</td><td>{r.SLA:.1f}%</td><td>{r.Reversa:.2f}%</td></tr>'.replace(",","X").replace(".",",").replace("X",".")
-            for r in df_cd.itertuples()
-        )
-        st.markdown(f'<div class="cio-table-wrap"><table class="cio-table"><thead><tr><th>CD Origem</th><th>Volume recebido</th><th>SLA</th><th>Índice reversa</th></tr></thead><tbody>{linhas_tabela}</tbody></table></div>',unsafe_allow_html=True)
+        linhas=[]
+        for r in df_cd.itertuples():
+            status="Excelente" if r.Score>=91 else ("Atenção" if r.Score<88 else "Estável")
+            cls="ok" if r.Score>=91 else ("risk" if r.Score<88 else "warn")
+            linhas.append(f'<tr class="{cls}"><td><b>#{r.Rank}</b></td><td><strong>{html.escape(r.CD)}</strong></td><td>{r.Volume:,.0f}</td><td>{r.SLA:.1f}%</td><td>{r.Reversa:.2f}%</td><td>{r.Ocupação:.0f}%</td><td><span class="status-pill {cls}">{status}</span></td></tr>'.replace(",","X").replace(".",",").replace("X","."))
+        st.markdown(f'<div class="cio-table-wrap enhanced"><table class="cio-table"><thead><tr><th>#</th><th>CD Origem</th><th>Volume</th><th>SLA</th><th>Reversa</th><th>Ocup.</th><th>Status</th></tr></thead><tbody>{"".join(linhas)}</tbody></table></div>',unsafe_allow_html=True)
     with c3:
         st.markdown(f'<div class="cio-panel-title">ALERTAS E DESVIOS CRÍTICOS <span class="alert-count">{len(alertas_base)}</span></div>',unsafe_allow_html=True)
         for icone,titulo,detalhe,tempo in alertas_base:
             st.markdown(f'<div class="cio-alert"><span class="cio-alert-icon">{icone}</span><span><b>{titulo}</b><small>{detalhe} • {html.escape(contexto)}</small></span><em>{tempo}</em></div>',unsafe_allow_html=True)
 
-    fator=perfil["fator"]
     meses=["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov"]
-    mensal=pd.DataFrame({"Mês":meses,"Recebido":[round(v*fator) for v in [620,1030,2930,420,360,380,470,1230,2940,590,1060]],"Expedido":[round(v*fator) for v in [510,910,2650,390,320,350,430,1100,2680,540,980]]}).melt("Mês",var_name="Indicador",value_name="Quantidade")
-    tendencias=pd.DataFrame({"Semana":["S1","S2","S3","S4","S5"],"SLA":[perfil["sla"]-0.6,perfil["sla"]-0.5,perfil["sla"]-0.3,perfil["sla"]-0.2,perfil["sla"]],"Reversa":[perfil["reversa"]+0.25,perfil["reversa"]+0.20,perfil["reversa"]+0.13,perfil["reversa"]-0.03,perfil["reversa"]]}).melt("Semana",var_name="Indicador",value_name="Valor")
-    p1,p2,p3=st.columns([1.1,1,1],gap="medium")
+    fator=perfil["fator"]
+    canal=pd.DataFrame({
+        "Mês":meses,
+        "Pedidos Sem Canal Vermelho":[round(v*fator) for v in [520,920,2710,410,340,370,420,1130,2740,560,990]],
+        "Pedidos Com Canal Vermelho":[round(v*fator) for v in [72,118,286,48,39,43,55,132,305,68,116]],
+    }).melt("Mês",var_name="Tipo",value_name="Pedidos")
+    ocupacao=cds.sort_values("Ocupação",ascending=False)
+    p1,p2,p3=st.columns([1.12,1.0,0.95],gap="medium")
     with p1:
-        st.markdown('<div class="cio-panel-title">VOLUME MENSAL</div>',unsafe_allow_html=True)
-        chart=alt.Chart(mensal).mark_bar().encode(x=alt.X("Mês:N",sort=meses,axis=alt.Axis(labelColor="#cbd5df",title=None)),y=alt.Y("Quantidade:Q",axis=alt.Axis(labelColor="#cbd5df",gridColor="#362329",title=None)),color=alt.Color("Indicador:N",scale=alt.Scale(range=["#e52432","#f5a623"]),legend=alt.Legend(labelColor="#fff",title=None)),xOffset="Indicador:N",tooltip=["Mês","Indicador","Quantidade"]).properties(height=255).configure_view(stroke=None).configure(background="#100c0f")
-        st.altair_chart(chart,use_container_width=True)
+        st.markdown('<div class="cio-panel-title">PEDIDOS DE CANAL VERMELHO</div><div class="cio-panel-sub">Comparativo mensal entre pedidos com e sem Canal Vermelho</div>',unsafe_allow_html=True)
+        canal_chart=alt.Chart(canal).mark_bar().encode(
+            x=alt.X("Mês:N",sort=meses,axis=alt.Axis(labelColor="#cbd5df",title=None)),
+            y=alt.Y("Pedidos:Q",axis=alt.Axis(labelColor="#cbd5df",gridColor="#362329",title=None)),
+            color=alt.Color("Tipo:N",scale=alt.Scale(domain=["Pedidos Sem Canal Vermelho","Pedidos Com Canal Vermelho"],range=["#f5a623","#ef3340"]),legend=alt.Legend(labelColor="#fff",title=None)),
+            xOffset="Tipo:N",tooltip=["Mês","Tipo","Pedidos"]
+        ).properties(height=270).configure_view(stroke=None).configure(background="#100c0f")
+        st.altair_chart(canal_chart,use_container_width=True)
     with p2:
-        st.markdown('<div class="cio-panel-title">TENDÊNCIA DOS PRINCIPAIS INDICADORES</div>',unsafe_allow_html=True)
-        line=alt.Chart(tendencias).mark_line(point=True,strokeWidth=3).encode(x=alt.X("Semana:N",axis=alt.Axis(labelColor="#cbd5df",title=None)),y=alt.Y("Valor:Q",axis=alt.Axis(labelColor="#cbd5df",gridColor="#362329",title=None),scale=alt.Scale(zero=False)),color=alt.Color("Indicador:N",scale=alt.Scale(range=["#f42b35","#f5b62c"]),legend=alt.Legend(labelColor="#fff",title=None)),tooltip=["Semana","Indicador","Valor"]).properties(height=255).configure_view(stroke=None).configure(background="#100c0f")
-        st.altair_chart(line,use_container_width=True)
+        st.markdown('<div class="cio-panel-title">OCUPAÇÃO DOS CDs</div><div class="cio-panel-sub">Faixa recomendada: 75% a 90%</div>',unsafe_allow_html=True)
+        ocup_chart=alt.Chart(ocupacao).mark_bar(cornerRadiusEnd=5).encode(
+            x=alt.X("Ocupação:Q",scale=alt.Scale(domain=[0,100]),axis=alt.Axis(labelColor="#cbd5df",gridColor="#362329",title=None,format=".0f")),
+            y=alt.Y("CD:N",sort="-x",axis=alt.Axis(labelColor="#f2f4f7",title=None)),
+            color=alt.condition(alt.datum.Ocupação>90,alt.value("#ef3340"),alt.condition(alt.datum.Ocupação>=75,alt.value("#1dc267"),alt.value("#f5a623"))),
+            tooltip=["CD","Ocupação"]
+        ).properties(height=270).configure_view(stroke=None).configure(background="#100c0f")
+        st.altair_chart(ocup_chart,use_container_width=True)
     with p3:
-        st.markdown('<div class="cio-panel-title">DESTAQUES DA OPERAÇÃO</div>',unsafe_allow_html=True)
-        destaques=[f"SLA atual de {str(perfil['sla']).replace('.',',')}%",f"Índice de reversa em {str(perfil['reversa']).replace('.',',')}%",f"{fmt(perfil['volume'])} unidades recebidas",f"{fmt(perfil['expedicoes'])} expedições realizadas",f"Dados simulados • {contexto}"]
-        for i,texto in enumerate(destaques):st.markdown(f'<div class="cio-highlight">{"✅" if i<4 else "ℹ️"} {texto}</div>',unsafe_allow_html=True)
+        st.markdown('<div class="cio-panel-title">DESTAQUES PARA DECISÃO</div>',unsafe_allow_html=True)
+        destaques=[
+            f"Melhor CD: {melhor_cd['CD']} (score {melhor_cd['Score']:.1f})",
+            f"CD em atenção: {pior_cd['CD']} (ocupação {pior_cd['Ocupação']:.0f}%)",
+            f"Melhor empresa: {melhor_empresa['Empresa']}",
+            f"Empresa em atenção: {pior_empresa['Empresa']}",
+            f"Filtro atual: {contexto}",
+        ]
+        for i,texto in enumerate(destaques):
+            ic="🏆" if i in (0,2) else ("⚠️" if i in (1,3) else "ℹ️")
+            st.markdown(f'<div class="cio-highlight">{ic} {html.escape(str(texto))}</div>',unsafe_allow_html=True)
 
 
 def exibir_atualizacoes():
@@ -1817,6 +1874,13 @@ body:has(.cio-title) [data-testid="stSelectbox"]>div>div{min-height:40px!importa
 .cio-table td{padding:11px 10px;border-bottom:1px solid #352126;color:#e9e4e5}
 .cio-table tbody tr:hover{background:#211318}
 .cio-table tbody tr:last-child td{border-bottom:0}
+
+/* Destaques executivos de melhor e pior desempenho */
+.decision-card{border:1px solid #593038;background:linear-gradient(145deg,#160d11,#0d0a0c);border-radius:13px;padding:12px 14px;min-height:88px;box-shadow:0 8px 22px rgba(0,0,0,.22)}
+.decision-card span{display:block;font-size:.64rem;font-weight:900;letter-spacing:.45px;color:#cfc4c7;margin-bottom:5px}.decision-card strong{display:block;color:#fff;font-size:1.02rem;line-height:1.15}.decision-card small{display:block;color:#bfb3b7;font-size:.68rem;margin-top:5px}.decision-card.good{border-left:4px solid #1dc267;background:linear-gradient(145deg,rgba(24,184,75,.14),#0d0a0c 55%)}.decision-card.bad{border-left:4px solid #ef3340;background:linear-gradient(145deg,rgba(239,51,64,.16),#0d0a0c 55%)}
+.cio-table-wrap.enhanced{max-height:330px}.cio-table tr.ok{background:rgba(29,194,103,.06)}.cio-table tr.risk{background:rgba(239,51,64,.08)}.cio-table tr.warn{background:rgba(245,166,35,.05)}
+.status-pill{display:inline-block;border-radius:999px;padding:3px 8px;font-size:.58rem;font-weight:900;white-space:nowrap}.status-pill.ok{background:rgba(29,194,103,.18);color:#5ce694}.status-pill.warn{background:rgba(245,166,35,.18);color:#ffc75d}.status-pill.risk{background:rgba(239,51,64,.18);color:#ff7580}
+@media(max-width:900px){.decision-card{min-height:78px;margin-bottom:5px}.cio-table{min-width:650px}}
 </style>
 <div class="portal-head portal-head-base">
   <div class="portal-brand">
