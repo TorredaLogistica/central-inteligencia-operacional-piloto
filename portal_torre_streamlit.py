@@ -558,6 +558,8 @@ def exibir_visao_geral():
     })
     cds["Volume"]=(cds["Volume"]*fator_empresa).round().astype(int)
     cds["Score"]=(cds["SLA"]-(cds["Reversa"]*1.9)-((cds["Ocupação"]-82).abs()*0.10)).round(1)
+    cds["Faixa desempenho"] = cds["Score"].apply(lambda v: "Excelente" if v >= 91 else ("Atenção" if v < 88 else "Estável"))
+    cds["Faixa ocupação"] = cds["Ocupação"].apply(lambda v: "Crítica" if v > 90 else ("Adequada" if v >= 75 else "Baixa"))
     cds=cds.sort_values("Score",ascending=False).reset_index(drop=True)
     cds["Rank"]=range(1,len(cds)+1)
     empresas_df=pd.DataFrame({"Empresa":["Claro Móvel","Claro TV","Embratel","NET","Claro Fixo"],"Score":[94.6,90.1,92.7,87.9,89.4]})
@@ -583,8 +585,8 @@ def exibir_visao_geral():
         perf_chart=alt.Chart(perf).mark_bar(cornerRadiusEnd=5).encode(
             x=alt.X("Score:Q",scale=alt.Scale(domain=[84,94]),axis=alt.Axis(labelColor="#cbd5df",gridColor="#362329",title=None)),
             y=alt.Y("CD:N",sort=alt.EncodingSortField(field="Score",order="descending"),axis=alt.Axis(labelColor="#f2f4f7",title=None)),
-            color=alt.condition(alt.datum.Score>=91,alt.value("#1dc267"),alt.condition(alt.datum.Score<88,alt.value("#ef3340"),alt.value("#f2a51a"))),
-            tooltip=["Rank","CD","Score","SLA","Reversa","Ocupação"]
+            color=alt.Color("Faixa desempenho:N", scale=alt.Scale(domain=["Excelente","Estável","Atenção"], range=["#1dc267","#f2a51a","#ef3340"]), legend=None),
+            tooltip=["Rank","CD","Score","SLA","Reversa","Ocupação","Faixa desempenho"]
         ).properties(height=300).configure_view(stroke=None).configure(background="#100c0f")
         st.altair_chart(perf_chart,use_container_width=True)
     with c2:
@@ -624,8 +626,8 @@ def exibir_visao_geral():
         ocup_chart=alt.Chart(ocupacao).mark_bar(cornerRadiusEnd=5).encode(
             x=alt.X("Ocupação:Q",scale=alt.Scale(domain=[0,100]),axis=alt.Axis(labelColor="#cbd5df",gridColor="#362329",title=None,format=".0f")),
             y=alt.Y("CD:N",sort="-x",axis=alt.Axis(labelColor="#f2f4f7",title=None)),
-            color=alt.condition(alt.datum.Ocupação>90,alt.value("#ef3340"),alt.condition(alt.datum.Ocupação>=75,alt.value("#1dc267"),alt.value("#f5a623"))),
-            tooltip=["CD","Ocupação"]
+            color=alt.Color("Faixa ocupação:N", scale=alt.Scale(domain=["Adequada","Baixa","Crítica"], range=["#1dc267","#f5a623","#ef3340"]), legend=None),
+            tooltip=["CD","Ocupação","Faixa ocupação"]
         ).properties(height=270).configure_view(stroke=None).configure(background="#100c0f")
         st.altair_chart(ocup_chart,use_container_width=True)
     with p3:
