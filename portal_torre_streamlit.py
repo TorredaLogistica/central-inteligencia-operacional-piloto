@@ -1702,6 +1702,91 @@ div[data-testid="column"]:has([class*="st-key-card_indicador_"]:hover) .card-ind
 
 /* Visão geral executiva no modelo vermelho/preto */
 .cio-title{font-size:1.55rem;font-weight:900;color:#fff;line-height:1.1}.cio-subtitle{font-size:.75rem;color:#a9a3a5;margin-top:4px}.cio-update{font-size:.67rem;color:#aaa;padding:7px 0}.cio-update strong{color:#fff;font-size:.78rem}.demo-strip{background:linear-gradient(90deg,#7d0710,#d21722,#7d0710);color:#fff;text-align:center;font-size:.62rem;font-weight:850;letter-spacing:.7px;padding:5px;border-radius:6px;margin:7px 0 11px}.cio-kpi{height:156px;background:linear-gradient(145deg,#1a1013,#0d0b0d);border:1px solid #50272c;border-radius:14px;padding:13px;box-shadow:inset 0 0 20px rgba(180,0,12,.08),0 7px 18px rgba(0,0,0,.3);position:relative}.cio-kpi-head{display:flex;align-items:center;gap:8px}.cio-kpi-icon{display:flex;align-items:center;justify-content:center;width:42px;height:42px;border-radius:50%;background:linear-gradient(145deg,#ef2630,#a70710);font-size:1.3rem}.cio-kpi-title{font-size:.62rem;color:#f4f0f1;font-weight:850;line-height:1.2}.cio-kpi-value{font-size:1.35rem;color:#fff;font-weight:900;margin:10px 0 2px}.cio-kpi-unit{font-size:.62rem;color:#aaa}.cio-kpi-change{font-size:.58rem;font-weight:750;position:absolute;bottom:11px;left:13px}.cio-spark{position:absolute;right:10px;bottom:8px;color:#d7202c;font-size:1.15rem}.cio-panel-title{background:#120d0f;border:1px solid #50272c;border-bottom:0;border-radius:13px 13px 0 0;color:#fff;font-size:.76rem;font-weight:900;padding:10px 12px}.cio-panel-sub{background:#120d0f;color:#999;font-size:.6rem;padding:0 12px 7px;border-left:1px solid #50272c;border-right:1px solid #50272c}.alert-count{background:#c1121f;border-radius:10px;padding:2px 7px;margin-left:5px}.cio-alert{display:grid;grid-template-columns:28px 1fr 42px;gap:7px;align-items:center;background:#100c0e;border:1px solid #3a2428;border-top:0;padding:9px;color:#eee;font-size:.66rem}.cio-alert small{display:block;color:#a6a0a2;margin-top:3px}.cio-alert em{font-style:normal;color:#d0444b;font-size:.58rem;text-align:right}.project-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;background:#100c0e;border:1px solid #50272c;padding:9px}.project-grid div{background:#171013;border:1px solid #41282b;padding:8px;border-radius:8px}.project-grid b,.project-grid small{display:block;color:#bbb;font-size:.58rem}.project-grid strong{display:block;color:#fff;font-size:1.25rem;margin:6px 0}.financial-row{display:grid;grid-template-columns:repeat(3,1fr);background:#100c0e;border:1px solid #50272c;border-top:0;padding:10px}.financial-row div{border-right:1px solid #3c292c;text-align:center}.financial-row div:last-child{border:0}.financial-row small{display:block;color:#aaa;font-size:.55rem}.financial-row b{display:block;color:#fff;font-size:.84rem;margin-top:5px}.financial-row div:first-child b{color:#26c45a}.cio-highlight{background:#100c0e;border:1px solid #3a2428;border-top:0;color:#ddd;padding:10px;font-size:.66rem}[data-testid="stAppViewContainer"]{background:radial-gradient(circle at 20% 0%,#37080d 0,#12090c 28%,#070708 70%)!important}[data-testid="stVegaLiteChart"]{background:#100c0f!important;border-color:#50272c!important}@media(max-width:900px){.cio-kpi{height:140px}.cio-kpi-value{font-size:1.12rem}.project-grid{grid-template-columns:repeat(2,1fr)}}
+
+/* CORRECAO GLOBAL DE LEGIBILIDADE E TEMA HIBRIDO */
+:root{
+  --cio-page:#f3f5f7;
+  --cio-surface:#ffffff;
+  --cio-text:#1f2937;
+  --cio-muted:#5f6b78;
+  --cio-border:#d8dde3;
+  --cio-red:#c62026;
+  --cio-dark:#100c0f;
+}
+/* O fundo escuro fica somente na Visao Geral; as demais paginas voltam ao tema claro. */
+[data-testid="stAppViewContainer"]{
+  background:var(--cio-page)!important;
+  color:var(--cio-text)!important;
+}
+[data-testid="stMainBlockContainer"],.block-container{color:var(--cio-text)!important}
+/* Textos gerais e titulos */
+[data-testid="stAppViewContainer"] h1,
+[data-testid="stAppViewContainer"] h2,
+[data-testid="stAppViewContainer"] h3,
+[data-testid="stAppViewContainer"] h4,
+[data-testid="stAppViewContainer"] p,
+[data-testid="stAppViewContainer"] label,
+[data-testid="stAppViewContainer"] .stCaption,
+[data-testid="stAppViewContainer"] [data-testid="stMarkdownContainer"]{
+  color:var(--cio-text);
+}
+.overview-title{color:#202633!important}
+/* Formularios e containers claros */
+[data-testid="stForm"],
+[data-testid="stExpander"],
+[data-testid="stVerticalBlockBorderWrapper"]{
+  background:var(--cio-surface)!important;
+  color:var(--cio-text)!important;
+  border-color:var(--cio-border)!important;
+}
+[data-testid="stForm"] label,
+[data-testid="stForm"] p,
+[data-testid="stVerticalBlockBorderWrapper"] p,
+[data-testid="stVerticalBlockBorderWrapper"] strong{color:var(--cio-text)!important}
+input,textarea,[data-baseweb="select"]>div{
+  background:#fff!important;
+  color:#17202b!important;
+  border-color:#bfc7d1!important;
+}
+input::placeholder,textarea::placeholder{color:#7b8794!important;opacity:1!important}
+/* Metricas, tabelas e mensagens */
+[data-testid="stMetric"]{background:#fff!important;border:1px solid var(--cio-border)!important;border-radius:12px!important;padding:12px!important}
+[data-testid="stMetricLabel"],[data-testid="stMetricValue"],[data-testid="stMetricDelta"]{color:var(--cio-text)!important}
+[data-testid="stDataFrame"],[data-testid="stTable"]{background:#fff!important;color:var(--cio-text)!important;border-radius:12px!important;overflow:hidden!important}
+/* Segmented controls */
+[data-testid="stSegmentedControl"] button,[data-testid="stSegmentedControl"] label{background:#fff!important;color:#202633!important;border-color:#cfd5dc!important}
+[data-testid="stSegmentedControl"] button[aria-pressed="true"],[data-testid="stSegmentedControl"] label:has(input:checked){background:#a50f18!important;color:#fff!important;border-color:#d92832!important}
+/* Botoes */
+.stButton button,[data-testid="stFormSubmitButton"] button,[data-testid="stDownloadButton"] button{font-weight:750!important}
+.stButton button[kind="primary"],[data-testid="stFormSubmitButton"] button[kind="primary"]{background:#c93449!important;color:#fff!important;border-color:#c93449!important}
+/* Sidebar clara e legivel */
+[data-testid="stSidebar"]{background:#fff!important;color:#202633!important;border-right:1px solid #dde2e8!important}
+[data-testid="stSidebar"] *{color:#202633}
+[data-testid="stSidebar"] [data-testid="stRadio"] label:has(input:checked){background:#fdebed!important;color:#b51820!important}
+/* Mantem o dashboard executivo escuro e com alto contraste */
+.cio-title,.cio-subtitle,.cio-update,.cio-kpi,.cio-panel-title,.cio-panel-sub,.cio-alert,.project-grid,.financial-row,.cio-highlight,.chart-panel-title{color:#fff!important}
+.cio-title{color:#fff!important}.cio-subtitle{color:#d8cfd1!important}.cio-update{color:#d7ced0!important}.cio-update strong{color:#fff!important}
+.cio-kpi-title,.cio-kpi-value{color:#fff!important}.cio-kpi-unit{color:#d2c7c9!important}.cio-panel-sub{color:#c4b8bb!important}
+.cio-alert small{color:#c7bcc0!important}.project-grid b,.project-grid small{color:#d8cfd1!important}.financial-row small{color:#c9bec1!important}.cio-highlight{color:#f0ecee!important}
+/* Titulos da Visao Geral sobre fundo escuro */
+body:has(.cio-title) [data-testid="stAppViewContainer"]{background:radial-gradient(circle at 20% 0%,#39080d 0,#16090d 30%,#070708 72%)!important}
+body:has(.cio-title) [data-testid="stMainBlockContainer"],body:has(.cio-title) .block-container{color:#fff!important}
+body:has(.cio-title) [data-testid="stMainBlockContainer"] h1,
+body:has(.cio-title) [data-testid="stMainBlockContainer"] h2,
+body:has(.cio-title) [data-testid="stMainBlockContainer"] h3,
+body:has(.cio-title) [data-testid="stMainBlockContainer"] p,
+body:has(.cio-title) [data-testid="stMainBlockContainer"] label{color:#f3f5f7!important}
+/* Select do periodo na visao geral */
+body:has(.cio-title) [data-baseweb="select"]>div{background:#171015!important;color:#fff!important;border-color:#5b343a!important}
+body:has(.cio-title) [data-baseweb="select"] span,body:has(.cio-title) [data-baseweb="select"] svg{color:#fff!important;fill:#fff!important}
+/* Links sempre visiveis */
+a{color:#0b63ce!important}body:has(.cio-title) a{color:#72b7ff!important}
+/* Minha conta */
+body:not(:has(.cio-title)) [data-testid="stVerticalBlockBorderWrapper"]{box-shadow:0 4px 14px rgba(31,41,55,.06)!important}
+@media(max-width:580px){
+  [data-testid="stAppViewContainer"] h1{font-size:1.55rem!important}
+  [data-testid="stAppViewContainer"] h2{font-size:1.25rem!important}
+}
 </style>
 <div class="portal-head portal-head-base">
   <div class="portal-brand">
