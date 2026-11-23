@@ -568,6 +568,27 @@ def exibir_visao_geral():
     )
     st.markdown(f'<div class="sla-summary"><div class="sla-summary-head"><span>📊 SEPARAÇÃO E FATURAMENTO</span><small>{html.escape(contexto)}</small></div><div class="sla-summary-grid">{sla_html}</div></div>', unsafe_allow_html=True)
 
+    # Resumo demonstrativo do indicador Nível de Serviço dos OPLs.
+    pedidos_opl = max(1, round(14262 * perfil["fator"]))
+    sla_opl_d2 = max(0, min(100, 82.5 + ajuste_sla * 0.35 + ajuste_empresa * 0.25))
+    sla_opl_d4 = max(0, min(100, 98.2 + ajuste_sla * 0.12 + ajuste_empresa * 0.10))
+    gap_opl = max(0, sla_opl_d4 - sla_opl_d2)
+    impactados_opl = max(0, round(pedidos_opl * gap_opl / 100))
+    lead_time_opl = max(0.1, 1.62 - ajuste_sla * 0.015 - ajuste_empresa * 0.008)
+    opl_items = [
+        ("PEDIDOS", f"{pedidos_opl:,.0f}".replace(",", "."), "Pedidos avaliados no período", "pedidos"),
+        ("SLA D+2", f"{sla_opl_d2:.1f}%".replace(".", ","), "Meta operacional em D+2", "sla2"),
+        ("SLA D+4", f"{sla_opl_d4:.1f}%".replace(".", ","), "Conclusão acumulada até D+4", "sla4"),
+        ("GAP D+4 → D+2", f"{gap_opl:.1f}%".replace(".", ","), "Diferença entre os prazos", "gap"),
+        ("IMPACTADOS D+3/D+4", f"{impactados_opl:,.0f}".replace(",", "."), "Pedidos concluídos após D+2", "impactados"),
+        ("LEAD TIME MÉDIO", f"{lead_time_opl:.2f} dias".replace(".", ","), "Tempo médio de conclusão", "lead"),
+    ]
+    opl_html = "".join(
+        f'<div class="opl-mini {classe}"><span>{titulo}</span><strong>{valor}</strong><small>{descricao}</small></div>'
+        for titulo, valor, descricao, classe in opl_items
+    )
+    st.markdown(f'<div class="opl-summary"><div class="opl-summary-head"><span>🚚 NÍVEL DE SERVIÇO DOS OPLs</span><small>{html.escape(contexto)}</small></div><div class="opl-summary-grid">{opl_html}</div></div>', unsafe_allow_html=True)
+
     cds=pd.DataFrame({
         "CD":["Campinas","Rio de Janeiro","Brasília","Barueri","Contagem","Palhoça","Jaboatão","Manaus","Salvador"],
         "Volume":[238450,205320,141880,186750,152460,98740,88760,69340,98290],
@@ -708,6 +729,37 @@ def exibir_visao_geral():
         tooltip=["Período","Indicador",alt.Tooltip("SLA:Q",format=".1f")]
     ).properties(height=320).configure_view(stroke=None).configure(background="#100c0f")
     st.altair_chart(chart_evo,use_container_width=True)
+
+    # Rankings demonstrativos do Nível de Serviço dos OPLs por CD e empresa.
+    rank_opl_cd = pd.DataFrame({
+        "CD": ["Manaus","Jaboatão","Salvador","Contagem","Palhoça","Brasília","Barueri","Rio de Janeiro","Campinas"],
+        "SLA D+2": [72.8,76.4,79.1,80.3,82.0,83.8,85.1,87.6,89.4],
+    })
+    rank_opl_cd["Faixa"] = rank_opl_cd["SLA D+2"].apply(lambda v: "Crítico" if v < 78 else ("Atenção" if v < 85 else "Adequado"))
+    rank_opl_empresa = pd.DataFrame({
+        "Empresa": ["NET","Claro Fixo","Embratel","Claro TV","Claro Móvel"],
+        "SLA D+2": [76.9,80.8,82.1,85.7,88.9],
+    })
+    rank_opl_empresa["Faixa"] = rank_opl_empresa["SLA D+2"].apply(lambda v: "Crítico" if v < 78 else ("Atenção" if v < 85 else "Adequado"))
+    o1,o2=st.columns(2,gap="medium")
+    with o1:
+        st.markdown('<div class="cio-panel-title">NÍVEL DE SERVIÇO DOS OPLs • CDs CRÍTICOS</div><div class="cio-panel-sub">Ranking demonstrativo do SLA até D+2 por CD Origem</div>',unsafe_allow_html=True)
+        opl_cd_chart=alt.Chart(rank_opl_cd).mark_bar(cornerRadiusTopLeft=4,cornerRadiusTopRight=4).encode(
+            x=alt.X("CD:N",sort=alt.EncodingSortField(field="SLA D+2",order="ascending"),axis=alt.Axis(labelColor="#f2f4f7",labelAngle=-30,title=None)),
+            y=alt.Y("SLA D+2:Q",scale=alt.Scale(domain=[65,100]),axis=alt.Axis(labelColor="#cbd5df",gridColor="#362329",title=None)),
+            color=alt.Color("Faixa:N",scale=alt.Scale(domain=["Crítico","Atenção","Adequado"],range=["#b5002b","#f5a623","#07843f"]),legend=None),
+            tooltip=["CD",alt.Tooltip("SLA D+2:Q",format=".1f"),"Faixa"]
+        ).properties(height=285).configure_view(stroke=None).configure(background="#100c0f")
+        st.altair_chart(opl_cd_chart,use_container_width=True)
+    with o2:
+        st.markdown('<div class="cio-panel-title">NÍVEL DE SERVIÇO DOS OPLs • EMPRESAS</div><div class="cio-panel-sub">Comparativo demonstrativo do SLA até D+2 por empresa</div>',unsafe_allow_html=True)
+        opl_emp_chart=alt.Chart(rank_opl_empresa).mark_bar(cornerRadiusTopLeft=4,cornerRadiusTopRight=4).encode(
+            x=alt.X("Empresa:N",sort=alt.EncodingSortField(field="SLA D+2",order="ascending"),axis=alt.Axis(labelColor="#f2f4f7",title=None)),
+            y=alt.Y("SLA D+2:Q",scale=alt.Scale(domain=[65,100]),axis=alt.Axis(labelColor="#cbd5df",gridColor="#362329",title=None)),
+            color=alt.Color("Faixa:N",scale=alt.Scale(domain=["Crítico","Atenção","Adequado"],range=["#b5002b","#f5a623","#07843f"]),legend=None),
+            tooltip=["Empresa",alt.Tooltip("SLA D+2:Q",format=".1f"),"Faixa"]
+        ).properties(height=285).configure_view(stroke=None).configure(background="#100c0f")
+        st.altair_chart(opl_emp_chart,use_container_width=True)
 
 
 def exibir_atualizacoes():
@@ -1958,6 +2010,15 @@ body:has(.cio-title) [data-testid="stSelectbox"]>div>div{min-height:40px!importa
 .sla-mini{position:relative;padding:11px 15px 13px;border-right:1px solid #3d2429;min-height:92px}.sla-mini:last-child{border-right:0}.sla-mini span{display:block;color:#bfb4b7;font-size:.61rem;font-weight:850;letter-spacing:.4px}.sla-mini strong{display:block;color:#fff;font-size:1.55rem;line-height:1.2;margin:6px 0 3px}.sla-mini small{display:block;color:#9f9498;font-size:.60rem}.sla-mini:before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px}.sla-mini.d0:before{background:#1479df}.sla-mini.d1:before{background:#f5a623}.sla-mini.d2:before{background:#1dc267}.sla-mini.total:before{background:#ef3340}
 @media(max-width:900px){.sla-summary-grid{grid-template-columns:repeat(2,1fr)}.sla-mini:nth-child(2){border-right:0}.sla-mini:nth-child(-n+2){border-bottom:1px solid #3d2429}}
 @media(max-width:580px){.sla-summary-head{align-items:flex-start;flex-direction:column;gap:4px}.sla-mini strong{font-size:1.28rem}}
+
+/* Resumo do Nivel de Servico dos OPLs */
+.opl-summary{margin:0 0 14px;background:linear-gradient(135deg,#170d11,#0d090b);border:1px solid #5a2c33;border-radius:15px;overflow:hidden;box-shadow:0 9px 25px rgba(0,0,0,.22)}
+.opl-summary-head{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid #452329;background:linear-gradient(90deg,rgba(245,166,35,.13),transparent)}
+.opl-summary-head span{font-size:.74rem;font-weight:950;color:#fff;letter-spacing:.45px}.opl-summary-head small{font-size:.65rem;color:#c9bdc0}
+.opl-summary-grid{display:grid;grid-template-columns:repeat(6,1fr)}
+.opl-mini{position:relative;padding:11px 12px 13px;border-right:1px solid #3d2429;min-height:95px}.opl-mini:last-child{border-right:0}.opl-mini span{display:block;color:#bfb4b7;font-size:.59rem;font-weight:850;letter-spacing:.35px;min-height:24px}.opl-mini strong{display:block;color:#fff;font-size:1.30rem;line-height:1.2;margin:5px 0 3px;white-space:nowrap}.opl-mini small{display:block;color:#9f9498;font-size:.57rem;line-height:1.25}.opl-mini:before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px}.opl-mini.pedidos:before{background:#ef3340}.opl-mini.sla2:before{background:#f5a623}.opl-mini.sla4:before{background:#1dc267}.opl-mini.gap:before{background:#a85be8}.opl-mini.impactados:before{background:#ff6b35}.opl-mini.lead:before{background:#27a8d8}
+@media(max-width:1100px){.opl-summary-grid{grid-template-columns:repeat(3,1fr)}.opl-mini:nth-child(3),.opl-mini:nth-child(6){border-right:0}.opl-mini:nth-child(-n+3){border-bottom:1px solid #3d2429}}
+@media(max-width:580px){.opl-summary-head{align-items:flex-start;flex-direction:column;gap:4px}.opl-summary-grid{grid-template-columns:repeat(2,1fr)}.opl-mini:nth-child(3){border-right:1px solid #3d2429}.opl-mini:nth-child(even){border-right:0}.opl-mini:nth-child(-n+4){border-bottom:1px solid #3d2429}.opl-mini strong{font-size:1.12rem}}
 </style>
 <div class="portal-head portal-head-base">
   <div class="portal-brand">
