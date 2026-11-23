@@ -534,6 +534,13 @@ def exibir_visao_geral():
     contexto_cd="Todos os CDs" if cd_selecionado=="Consolidado" else cd_selecionado
     contexto_empresa="Todas as empresas" if empresa_selecionada=="Consolidado" else empresa_selecionada
     contexto=f"{contexto_cd} • {contexto_empresa}"
+    # KPIs demonstrativos de Separação e Faturamento; serão substituídos pelas regras oficiais da base.
+    ajuste_sla = 0 if cd_selecionado == "Consolidado" else (perfil["sla"] - 96.8) * 0.45
+    ajuste_empresa = (empresas[empresa_selecionada]["score"] - 91.8) * 0.12 if empresa_selecionada != "Consolidado" else 0
+    sla_d0 = max(0, min(100, 57.15 + ajuste_sla + ajuste_empresa))
+    sla_d1 = max(0, min(100, 94.91 + ajuste_sla + ajuste_empresa))
+    sla_d2 = max(0, min(100, 99.60 + (ajuste_sla + ajuste_empresa) * 0.20))
+    total_pedidos = max(1, round(15709 * perfil["fator"]))
 
     kpis=[
         ("📦","VOLUME RECEBIDO",fmt(perfil["volume"]),"Unidades","▲ 8,6% vs mês anterior","#18b84b"),
@@ -548,6 +555,18 @@ def exibir_visao_geral():
         with col:
             icone,titulo,valor,unidade,variacao,cor=item
             st.markdown(f'<div class="cio-kpi"><div class="cio-kpi-head"><span class="cio-kpi-icon">{icone}</span><span class="cio-kpi-title">{titulo}</span></div><div class="cio-kpi-value">{valor}</div><div class="cio-kpi-unit">{unidade}</div><div class="cio-kpi-change" style="color:{cor}">{variacao}</div><div class="cio-spark">⌁╱⌁╱╲╱</div></div>',unsafe_allow_html=True)
+
+    sla_items = [
+        ("SLA ATÉ D+0", f"{sla_d0:.2f}%".replace(".", ","), "Separado e faturado no mesmo dia", "d0"),
+        ("SLA ATÉ D+1", f"{sla_d1:.2f}%".replace(".", ","), "Meta operacional: 95,56%", "d1"),
+        ("SLA ATÉ D+2", f"{sla_d2:.2f}%".replace(".", ","), "Pedidos concluídos em até dois dias", "d2"),
+        ("TOTAL DE PEDIDOS", f"{total_pedidos:,.0f}".replace(",", "."), "Volume do filtro selecionado", "total"),
+    ]
+    sla_html = "".join(
+        f'<div class="sla-mini {classe}"><span>{titulo}</span><strong>{valor}</strong><small>{descricao}</small></div>'
+        for titulo, valor, descricao, classe in sla_items
+    )
+    st.markdown(f'<div class="sla-summary"><div class="sla-summary-head"><span>📊 SEPARAÇÃO E FATURAMENTO</span><small>{html.escape(contexto)}</small></div><div class="sla-summary-grid">{sla_html}</div></div>', unsafe_allow_html=True)
 
     cds=pd.DataFrame({
         "CD":["Campinas","Rio de Janeiro","Brasília","Barueri","Contagem","Palhoça","Jaboatão","Manaus","Salvador"],
@@ -642,6 +661,53 @@ def exibir_visao_geral():
         for i,texto in enumerate(destaques):
             ic="🏆" if i in (0,2) else ("⚠️" if i in (1,3) else "ℹ️")
             st.markdown(f'<div class="cio-highlight">{ic} {html.escape(str(texto))}</div>',unsafe_allow_html=True)
+
+    # Resumo do indicador Separação e Faturamento no padrão dos dashboards originais.
+    rank_cd = pd.DataFrame({
+        "CD": ["Jaboatão","Campinas","Barueri","Brasília","Belém","Salvador","Palhoça","Rio de Janeiro","Contagem","São Luís","Manaus"],
+        "SLA D+1": [82.59,93.17,94.97,95.22,98.06,98.55,98.65,99.04,99.10,99.42,100.00],
+    })
+    rank_cd["Faixa"] = rank_cd["SLA D+1"].apply(lambda v: "Crítico" if v < 90 else ("Atenção" if v < 95.56 else "Meta atingida"))
+    rank_empresa = pd.DataFrame({"Empresa":["NET","Embratel","Claro Móvel","Claro TV"],"SLA D+1":[87.39,89.38,99.05,100.00]})
+    rank_empresa["Faixa"] = rank_empresa["SLA D+1"].apply(lambda v: "Crítico" if v < 90 else ("Atenção" if v < 95.56 else "Meta atingida"))
+    datas=["01/11","02/11","03/11","04/11","05/11","06/11","08/11","09/11","10/11","11/11","12/11","13/11","14/11","15/11"]
+    evolucao=pd.DataFrame({
+        "Período":datas,
+        "Até D+0":[0,100,76.4,66.3,66.3,28.4,0,74.8,46.6,33.9,67.6,43.1,0,100],
+        "Até D+1":[100,100,99.6,98.7,93.1,87.0,100,96.1,96.7,95.2,93.7,93.9,0,100],
+        "Até D+2":[100,100,99.6,99.7,99.7,97.9,100,99.8,99.5,99.9,99.3,99.8,100,100],
+        "Meta":[95.56]*14,
+    }).melt("Período",var_name="Indicador",value_name="SLA")
+
+    r1,r2=st.columns(2,gap="medium")
+    with r1:
+        st.markdown('<div class="cio-panel-title">RANKING CD ORIGEM CRÍTICOS • SLA ATÉ D+1</div><div class="cio-panel-sub">Destaque automático dos CDs abaixo da meta de 95,56%</div>',unsafe_allow_html=True)
+        chart_cd=alt.Chart(rank_cd).mark_bar(cornerRadiusTopLeft=4,cornerRadiusTopRight=4).encode(
+            x=alt.X("CD:N",sort=alt.EncodingSortField(field="SLA D+1",order="ascending"),axis=alt.Axis(labelColor="#f2f4f7",labelAngle=-35,title=None)),
+            y=alt.Y("SLA D+1:Q",scale=alt.Scale(domain=[80,100]),axis=alt.Axis(labelColor="#cbd5df",gridColor="#362329",title=None)),
+            color=alt.Color("Faixa:N",scale=alt.Scale(domain=["Crítico","Atenção","Meta atingida"],range=["#b5002b","#d7ef7c","#07843f"]),legend=None),
+            tooltip=["CD",alt.Tooltip("SLA D+1:Q",format=".2f"),"Faixa"]
+        ).properties(height=290).configure_view(stroke=None).configure(background="#100c0f")
+        st.altair_chart(chart_cd,use_container_width=True)
+    with r2:
+        st.markdown('<div class="cio-panel-title">RANKING EMPRESAS CRÍTICAS • SLA ATÉ D+1</div><div class="cio-panel-sub">Comparativo de desempenho das empresas</div>',unsafe_allow_html=True)
+        chart_emp=alt.Chart(rank_empresa).mark_bar(cornerRadiusTopLeft=4,cornerRadiusTopRight=4).encode(
+            x=alt.X("Empresa:N",sort=alt.EncodingSortField(field="SLA D+1",order="ascending"),axis=alt.Axis(labelColor="#f2f4f7",title=None)),
+            y=alt.Y("SLA D+1:Q",scale=alt.Scale(domain=[80,100]),axis=alt.Axis(labelColor="#cbd5df",gridColor="#362329",title=None)),
+            color=alt.Color("Faixa:N",scale=alt.Scale(domain=["Crítico","Atenção","Meta atingida"],range=["#b5002b","#ef573a","#07843f"]),legend=None),
+            tooltip=["Empresa",alt.Tooltip("SLA D+1:Q",format=".2f"),"Faixa"]
+        ).properties(height=290).configure_view(stroke=None).configure(background="#100c0f")
+        st.altair_chart(chart_emp,use_container_width=True)
+
+    st.markdown('<div class="cio-panel-title">EVOLUÇÃO DO SLA • D+0, D+1 E D+2</div><div class="cio-panel-sub">Acompanhamento diário com referência da meta de 95,56%</div>',unsafe_allow_html=True)
+    chart_evo=alt.Chart(evolucao).mark_line(point=True,strokeWidth=2.4).encode(
+        x=alt.X("Período:N",sort=datas,axis=alt.Axis(labelColor="#cbd5df",title=None)),
+        y=alt.Y("SLA:Q",scale=alt.Scale(domain=[0,100]),axis=alt.Axis(labelColor="#cbd5df",gridColor="#362329",title="Percentual (%)",titleColor="#cbd5df")),
+        color=alt.Color("Indicador:N",scale=alt.Scale(domain=["Até D+0","Até D+1","Até D+2","Meta"],range=["#1479df","#138a2e","#ff3038","#9b9b9b"]),legend=alt.Legend(labelColor="#fff",title=None,orient="right")),
+        strokeDash=alt.StrokeDash("Indicador:N",scale=alt.Scale(domain=["Até D+0","Até D+1","Até D+2","Meta"],range=[[1,0],[1,0],[1,0],[7,5]]),legend=None),
+        tooltip=["Período","Indicador",alt.Tooltip("SLA:Q",format=".1f")]
+    ).properties(height=320).configure_view(stroke=None).configure(background="#100c0f")
+    st.altair_chart(chart_evo,use_container_width=True)
 
 
 def exibir_atualizacoes():
@@ -1883,6 +1949,15 @@ body:has(.cio-title) [data-testid="stSelectbox"]>div>div{min-height:40px!importa
 .cio-table-wrap.enhanced{max-height:330px}.cio-table tr.ok{background:rgba(29,194,103,.06)}.cio-table tr.risk{background:rgba(239,51,64,.08)}.cio-table tr.warn{background:rgba(245,166,35,.05)}
 .status-pill{display:inline-block;border-radius:999px;padding:3px 8px;font-size:.58rem;font-weight:900;white-space:nowrap}.status-pill.ok{background:rgba(29,194,103,.18);color:#5ce694}.status-pill.warn{background:rgba(245,166,35,.18);color:#ffc75d}.status-pill.risk{background:rgba(239,51,64,.18);color:#ff7580}
 @media(max-width:900px){.decision-card{min-height:78px;margin-bottom:5px}.cio-table{min-width:650px}}
+
+/* Card consolidado de SLA de Separacao e Faturamento */
+.sla-summary{margin:13px 0 14px;background:linear-gradient(135deg,#180d11,#0c090b);border:1px solid #5a2c33;border-radius:15px;overflow:hidden;box-shadow:0 9px 25px rgba(0,0,0,.22)}
+.sla-summary-head{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid #452329;background:linear-gradient(90deg,rgba(203,24,35,.20),transparent)}
+.sla-summary-head span{font-size:.74rem;font-weight:950;color:#fff;letter-spacing:.45px}.sla-summary-head small{font-size:.65rem;color:#c9bdc0}
+.sla-summary-grid{display:grid;grid-template-columns:repeat(4,1fr)}
+.sla-mini{position:relative;padding:11px 15px 13px;border-right:1px solid #3d2429;min-height:92px}.sla-mini:last-child{border-right:0}.sla-mini span{display:block;color:#bfb4b7;font-size:.61rem;font-weight:850;letter-spacing:.4px}.sla-mini strong{display:block;color:#fff;font-size:1.55rem;line-height:1.2;margin:6px 0 3px}.sla-mini small{display:block;color:#9f9498;font-size:.60rem}.sla-mini:before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px}.sla-mini.d0:before{background:#1479df}.sla-mini.d1:before{background:#f5a623}.sla-mini.d2:before{background:#1dc267}.sla-mini.total:before{background:#ef3340}
+@media(max-width:900px){.sla-summary-grid{grid-template-columns:repeat(2,1fr)}.sla-mini:nth-child(2){border-right:0}.sla-mini:nth-child(-n+2){border-bottom:1px solid #3d2429}}
+@media(max-width:580px){.sla-summary-head{align-items:flex-start;flex-direction:column;gap:4px}.sla-mini strong{font-size:1.28rem}}
 </style>
 <div class="portal-head portal-head-base">
   <div class="portal-brand">
