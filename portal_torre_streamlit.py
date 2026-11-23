@@ -2052,6 +2052,10 @@ body:has(.cio-title) .cio-kpi-value{font-size:1.62rem}
 .reversa-mini:before{content:"";position:absolute;left:0;right:0;bottom:0;height:3px;background:#1dc267}.reversa-mini.rev3:before,.reversa-mini.rev4:before{background:#f5a623}.reversa-mini.rev5:before{background:#ef3340}
 @media(max-width:1100px){.reversa-summary-grid{grid-template-columns:repeat(3,1fr)}.reversa-mini:nth-child(3),.reversa-mini:nth-child(6){border-right:0}.reversa-mini:nth-child(-n+3){border-bottom:1px solid #3d2429}}
 @media(max-width:580px){.reversa-summary-head{align-items:flex-start;flex-direction:column;gap:4px}.reversa-summary-grid{grid-template-columns:repeat(2,1fr)}.reversa-mini:nth-child(3){border-right:1px solid #3d2429}.reversa-mini:nth-child(even){border-right:0}.reversa-mini:nth-child(-n+4){border-bottom:1px solid #3d2429}.reversa-mini strong{font-size:1.34rem}}
+
+/* Faixa unica e fixa de acessos publicos */
+div[data-testid="stSegmentedControl"]:has(+ div), [data-testid="stSegmentedControl"]{position:sticky;top:0;z-index:50;background:#fff;padding:7px 9px;border:1px solid #d9dee5;border-radius:10px;box-shadow:0 4px 12px rgba(31,41,55,.08);margin:8px 0 15px}
+[data-testid="stSegmentedControl"] button,[data-testid="stSegmentedControl"] label{min-height:34px!important;font-weight:750!important}
 </style>
 <div class="portal-head portal-head-base">
   <div class="portal-brand">
@@ -2313,18 +2317,18 @@ if st.session_state.usuario_logado:
     exibir_portal_usuario()
     st.stop()
 
-# Tela pública sem menu duplicado. O acesso padrão abre diretamente o login.
-# Rotas auxiliares permanecem disponíveis apenas por parâmetro de URL, sem exibir
-# os botões Entrar / Solicitar cadastro / Esqueci minha senha / Administrador.
-tela_param = str(st.query_params.get("tela", "entrar")).strip().lower()
-rotas_publicas = {
-    "entrar": "Entrar",
-    "cadastro": "Solicitar cadastro",
-    "senha": "Esqueci minha senha",
-    "admin": "Administrador",
-}
-modo_publico = rotas_publicas.get(tela_param, "Entrar")
-st.session_state.modo = modo_publico
+# Faixa única e fixa de acesso público. Mantida uma única instância para evitar
+# StreamlitDuplicateElementKey e o carregamento duplicado da tela.
+st.markdown('<span class="access-menu-anchor-unico"></span>', unsafe_allow_html=True)
+opcoes_acesso = ["Entrar", "Solicitar cadastro", "Esqueci minha senha", "Administrador"]
+if st.session_state.get("modo") not in opcoes_acesso:
+    st.session_state.modo = "Entrar"
+modo_publico = st.segmented_control(
+    "Acesso",
+    opcoes_acesso,
+    key="modo",
+    label_visibility="collapsed",
+) or "Entrar"
 
 if modo_publico == "Entrar":
     st.subheader("Acesso à Central")
