@@ -57,7 +57,7 @@ FONTES_REMOTAS = {
     "Atendimento de OVs nos TLs": {"repositorio": "TorredaLogistica/Atendimento-de-OVs-nos-TLs", "branch": "main", "arquivo": "Base OVs TLs.parquet", "formato": "parquet"},
     "Taxa de Ocupação dos CDs": {"repositorio": "TorredaLogistica/Taxa_de_Ocupacao_dos_CDs", "branch": "main", "arquivo": "Ocupação dos CDs.xlsx", "formato": "xlsx"},
     "Pedidos Canal Vermelho": {"repositorio": "TorredaLogistica/Canal_Vermelho", "branch": "main", "arquivo": "Base OTIF.parquet", "formato": "parquet"},
-    "Pedidos LPs e AAs NFs não Agrupadas": {"repositorio": "TorredaLogistica/NFs-Nao-Agrupadas", "branch": "main", "arquivo": "Base OTIF SOE AAs e LPs.xlsx", "formato": "xlsx"},
+    "Pedidos LPs e AAs NFs não Agrupadas": {"repositorio": "TorredaLogistica/NFs-Nao-Agrupadas", "branch": "main", "arquivo": "Base Tracking.xlsx", "formato": "xlsx"},
     "Faturas dos OPLs": {"repositorio": "TorredaLogistica/Faturas_dos_OPLs", "branch": "main", "arquivo": "Base Fatura.xlsx", "formato": "xlsx"},
     "Recebimento de Usados": {"repositorio": "TorredaLogistica/Controle_de_Recebimento_de_Usados", "branch": "main", "arquivo": "Controle de Recebimento de Materiais.xlsx", "formato": "xlsx"},
     "Nível de Serviços dos OPLs": {"repositorio": "TorredaLogistica/Nivel_De_Servico_OPLs", "branch": "main", "arquivo": "Base Otif 2026.parquet", "formato": "parquet"},
