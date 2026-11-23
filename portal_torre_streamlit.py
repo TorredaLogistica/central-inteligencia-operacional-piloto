@@ -632,24 +632,18 @@ def exibir_visao_geral():
 
 
     alertas_base=[("🔴","SLA abaixo da meta","SLA inferior à meta operacional","Há 2h"),("🟠","Ocupação crítica","CD acima de 90% de ocupação","Há 3h"),("🟠","Pendências de faturamento","Valores aguardando tratamento","Há 4h"),("🔴","Atraso em pedidos Canal Vermelho","Pedidos críticos em atraso","Há 5h")]
-    c1,c2=st.columns([1.45,1.0],gap="medium")
-    with c1:
-        st.markdown(f'<div class="cio-panel-title">DESEMPENHO DOS CDs</div><div class="cio-panel-sub">Ranking executivo • {html.escape(contexto_empresa)}</div>',unsafe_allow_html=True)
-        perf=cds.sort_values("Score")
-        perf_base=alt.Chart(perf).encode(
-            x=alt.X("Score:Q",scale=alt.Scale(domain=[84,95]),axis=alt.Axis(labelColor="#cbd5df",gridColor="#362329",title=None)),
-            y=alt.Y("CD:N",sort=alt.EncodingSortField(field="Score",order="descending"),axis=alt.Axis(labelColor="#f2f4f7",title=None)),
-            color=alt.Color("Faixa desempenho:N",scale=alt.Scale(domain=["Excelente","Estável","Atenção"],range=["#1dc267","#f2a51a","#ef3340"]),legend=None),
-            tooltip=["Rank","CD","Score","SLA","Reversa","Ocupação","Faixa desempenho"]
-        )
-        perf_bars=perf_base.mark_bar(cornerRadiusEnd=5)
-        perf_labels=perf_base.transform_calculate(Rotulo="format(datum.Score, '.1f')").mark_text(align="right",dx=-7,color="white",fontSize=11,fontWeight="bold").encode(text="Rotulo:N")
-        perf_chart=(perf_bars+perf_labels).properties(height=300).configure_view(stroke=None).configure(background="#100c0f")
-        st.altair_chart(perf_chart,use_container_width=True)
-    with c2:
-        st.markdown(f'<div class="cio-panel-title">ALERTAS E DESVIOS CRÍTICOS <span class="alert-count">{len(alertas_base)}</span></div><div class="cio-panel-sub">Pontos que exigem atuação no filtro atual</div>',unsafe_allow_html=True)
-        for icone,titulo,detalhe,tempo in alertas_base:
-            st.markdown(f'<div class="cio-alert"><span class="cio-alert-icon">{icone}</span><span><b>{titulo}</b><small>{detalhe} • {html.escape(contexto)}</small></span><em>{tempo}</em></div>',unsafe_allow_html=True)
+    st.markdown(f'<div class="cio-panel-title">DESEMPENHO COMPARATIVO DOS CDs</div><div class="cio-panel-sub">Score de 0 a 100: combina SLA, índice de reversa e ocupação. Quanto maior, melhor.</div>',unsafe_allow_html=True)
+    perf=cds.sort_values("Score")
+    perf_base=alt.Chart(perf).encode(
+        x=alt.X("Score:Q",scale=alt.Scale(domain=[84,96]),axis=alt.Axis(labelColor="#cbd5df",gridColor="#362329",title="Score operacional",titleColor="#cbd5df")),
+        y=alt.Y("CD:N",sort=alt.EncodingSortField(field="Score",order="descending"),axis=alt.Axis(labelColor="#f2f4f7",title=None)),
+        color=alt.Color("Faixa desempenho:N",scale=alt.Scale(domain=["Excelente","Estável","Atenção"],range=["#1dc267","#f2a51a","#ef3340"]),legend=alt.Legend(labelColor="#fff",title=None,orient="top")),
+        tooltip=["Rank","CD",alt.Tooltip("Score:Q",format=".1f"),alt.Tooltip("SLA:Q",format=".1f"),alt.Tooltip("Reversa:Q",format=".2f"),alt.Tooltip("Ocupação:Q",format=".0f"),"Faixa desempenho"]
+    )
+    perf_bars=perf_base.mark_bar(cornerRadiusEnd=6,size=24)
+    perf_labels=perf_base.transform_calculate(Rotulo="format(datum.Score, '.1f')").mark_text(align="right",dx=-8,color="white",fontSize=12,fontWeight="bold").encode(text="Rotulo:N")
+    perf_chart=(perf_bars+perf_labels).properties(height=318).configure_view(stroke=None).configure(background="#100c0f")
+    st.altair_chart(perf_chart,use_container_width=True)
 
     canal_pct=pd.DataFrame({
         "Mês":["Junho","Julho","Agosto","Setembro","Outubro","Novembro"],
@@ -668,8 +662,11 @@ def exibir_visao_geral():
             order=alt.Order("Tipo:N",sort="descending"),tooltip=["Mês","Tipo",alt.Tooltip("Percentual:Q",format=".2f")]
         )
         barras=base_canal.mark_bar(cornerRadius=3)
-        rotulos=base_canal.transform_calculate(Rotulo="format(datum.Percentual, '.2f') + '%'").mark_text(color="white",fontSize=11,fontWeight="bold").encode(text="Rotulo:N")
-        canal_chart=(barras+rotulos).properties(height=270).configure_view(stroke=None).configure(background="#100c0f")
+        sem_rotulos=alt.Chart(canal_pct).transform_calculate(Rotulo="format(datum['Pedidos Sem Canal Vermelho'], '.2f') + '%'").mark_text(align="right",dx=-7,color="#fff6dd",fontSize=12,fontWeight="bold").encode(
+            x=alt.value(590),y=alt.Y("Mês:N",sort=["Junho","Julho","Agosto","Setembro","Outubro","Novembro"]),text="Rotulo:N")
+        com_rotulos=alt.Chart(canal_pct).transform_calculate(Rotulo="format(datum['Pedidos Com Canal Vermelho'], '.2f') + '%'").mark_text(align="right",dx=-5,color="#ffffff",fontSize=11,fontWeight="bold").encode(
+            x=alt.value(690),y=alt.Y("Mês:N",sort=["Junho","Julho","Agosto","Setembro","Outubro","Novembro"]),text="Rotulo:N")
+        canal_chart=(barras+sem_rotulos+com_rotulos).properties(height=270).configure_view(stroke=None).configure(background="#100c0f")
         st.altair_chart(canal_chart,use_container_width=True)
     with p2:
         st.markdown('<div class="cio-panel-title">OCUPAÇÃO DOS CDs</div><div class="cio-panel-sub">Faixa recomendada: 75% a 90%</div>',unsafe_allow_html=True)
@@ -703,6 +700,42 @@ def exibir_visao_geral():
         tooltip=["Período","Indicador",alt.Tooltip("SLA:Q",format=".1f")]
     ).properties(height=320).configure_view(stroke=None).configure(background="#100c0f")
     st.altair_chart(chart_evo,use_container_width=True)
+
+    opl_evolucao=pd.DataFrame({
+        "Período":datas,
+        "SLA D+2":[74.2,76.8,79.5,81.0,80.6,82.3,83.1,81.9,84.0,82.5,83.4,84.1,82.8,85.0],
+        "SLA D+4":[95.2,96.1,97.0,97.4,97.2,97.8,98.0,97.6,98.3,98.2,98.4,98.6,98.2,98.8],
+        "Meta D+2":[95.0]*14,
+    }).melt("Período",var_name="Indicador",value_name="SLA")
+    st.markdown('<div class="cio-panel-title">EVOLUÇÃO DO NÍVEL DE SERVIÇO DOS OPLs</div><div class="cio-panel-sub">Acompanhamento diário do SLA D+2 e D+4 com referência da meta D+2</div>',unsafe_allow_html=True)
+    chart_opl=alt.Chart(opl_evolucao).mark_line(point=True,strokeWidth=2.6).encode(
+        x=alt.X("Período:N",sort=datas,axis=alt.Axis(labelColor="#cbd5df",title=None)),
+        y=alt.Y("SLA:Q",scale=alt.Scale(domain=[65,100]),axis=alt.Axis(labelColor="#cbd5df",gridColor="#362329",title="Percentual (%)",titleColor="#cbd5df")),
+        color=alt.Color("Indicador:N",scale=alt.Scale(domain=["SLA D+2","SLA D+4","Meta D+2"],range=["#f5a623","#1dc267","#9b9b9b"]),legend=alt.Legend(labelColor="#fff",title=None,orient="right")),
+        strokeDash=alt.StrokeDash("Indicador:N",scale=alt.Scale(domain=["SLA D+2","SLA D+4","Meta D+2"],range=[[1,0],[1,0],[7,5]]),legend=None),
+        tooltip=["Período","Indicador",alt.Tooltip("SLA:Q",format=".1f")]
+    ).properties(height=300).configure_view(stroke=None).configure(background="#100c0f")
+    st.altair_chart(chart_opl,use_container_width=True)
+
+    st.markdown('<div class="cio-panel-title">RESUMO EXECUTIVO</div><div class="cio-panel-sub">Principais mensagens para decisão no filtro selecionado</div>',unsafe_allow_html=True)
+    resumo_cards=[
+        ("Operação",f"SLA operacional em {perfil['sla']:.1f}%","Acima da referência demonstrativa" if perfil["sla"]>=95 else "Abaixo da referência demonstrativa","good" if perfil["sla"]>=95 else "bad"),
+        ("Separação e Faturamento",f"D+1 em {sla_d1:.2f}%",f"{total_pedidos:,.0f} pedidos no filtro".replace(",","."),"good" if sla_d1>=95.56 else "bad"),
+        ("Nível de Serviço OPLs",f"D+2 em {sla_opl_d2:.1f}%",f"Gap para D+4 de {gap_opl:.1f} p.p.","good" if sla_opl_d2>=95 else "bad"),
+        ("Canal Vermelho","7,09% dos pedidos","Mês anterior: 3,65% • aumento de 3,44 p.p.","bad"),
+        ("Capacidade",f"{int((cds['Ocupação']>90).sum())} CD(s) acima de 90%",f"Maior ocupação: {cds.loc[cds['Ocupação'].idxmax(),'CD']}","bad" if (cds["Ocupação"]>90).any() else "good"),
+        ("Forecast",f"Acuracidade de {acuracidade_fcst:.2f}%",f"Desvio de {desvio_fcst:,.0f}".replace(",","."),"good" if acuracidade_fcst>=98 else "bad"),
+    ]
+    cols=st.columns(3,gap="small")
+    for i,(titulo,valor,detalhe,classe) in enumerate(resumo_cards):
+        with cols[i%3]:
+            st.markdown(f'<div class="executive-summary {classe}"><span>{titulo}</span><strong>{valor}</strong><small>{detalhe}</small></div>',unsafe_allow_html=True)
+
+    st.markdown(f'<div class="cio-panel-title">ALERTAS E DESVIOS CRÍTICOS <span class="alert-count">{len(alertas_base)}</span></div><div class="cio-panel-sub">Pontos que exigem atuação no filtro atual • {html.escape(contexto)}</div>',unsafe_allow_html=True)
+    alert_cols=st.columns(2,gap="small")
+    for i,(icone,titulo,detalhe,tempo) in enumerate(alertas_base):
+        with alert_cols[i%2]:
+            st.markdown(f'<div class="cio-alert final-alert"><span class="cio-alert-icon">{icone}</span><span><b>{titulo}</b><small>{detalhe}</small></span><em>{tempo}</em></div>',unsafe_allow_html=True)
 
 
 def exibir_atualizacoes():
@@ -1965,6 +1998,10 @@ body:has(.cio-title) [data-testid="stSelectbox"]>div>div{min-height:40px!importa
 
 /* Forecast e Realizado no mesmo padrao dos resumos executivos */
 .fcst-summary .sla-mini.realizado:before{background:#1dc267}.fcst-summary .sla-mini.previsao:before{background:#f5a623}.fcst-summary .sla-mini.desvio:before{background:#ef3340}.fcst-summary .sla-mini.acuracidade:before{background:#27a8d8}
+
+/* Resumo executivo final */
+.executive-summary{min-height:92px;margin-bottom:9px;padding:12px 14px;border-radius:13px;background:linear-gradient(145deg,#160d11,#0d0a0c);border:1px solid #523038;box-shadow:0 7px 18px rgba(0,0,0,.18)}
+.executive-summary span{display:block;color:#bfb4b7;font-size:.61rem;font-weight:900;letter-spacing:.38px;text-transform:uppercase}.executive-summary strong{display:block;color:#fff;font-size:1.03rem;margin:6px 0 3px}.executive-summary small{display:block;color:#b8acb0;font-size:.64rem;line-height:1.3}.executive-summary.good{border-left:4px solid #1dc267}.executive-summary.bad{border-left:4px solid #ef3340}.cio-alert.final-alert{min-height:74px;border:1px solid #43262c;border-radius:11px;margin-bottom:7px;background:#110c0e}.cio-alert.final-alert small{margin-top:3px}
 </style>
 <div class="portal-head portal-head-base">
   <div class="portal-brand">
