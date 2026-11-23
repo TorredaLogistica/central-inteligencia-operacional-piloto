@@ -496,77 +496,75 @@ def card_executivo(titulo,valor,detalhe,classe=""):
 
 
 def exibir_visao_geral():
-    resumos = [
-        ("Separação e Faturamento", "96,4%", "SLA consolidado", "815.020 pedidos processados", "#e53935"),
-        ("Pedidos para LPs", "12.480", "Pedidos no período", "94,8% dentro do prazo", "#1e88e5"),
-        ("Resultado do DRE", "R$ 8,7 mi", "Resultado acumulado", "+4,2% versus planejado", "#43a047"),
-        ("Valores dos EAs", "R$ 12,8 mi", "Estoque consolidado", "11 estruturas monitoradas", "#8e24aa"),
-        ("Atendimento de OVs nos TLs", "93,1%", "OVs atendidas", "1.146 OVs no período", "#00897b"),
-        ("Taxa de Ocupação dos CDs", "78,6%", "Ocupação média", "2 CDs acima de 85%", "#fb8c00"),
-        ("Pedidos Canal Vermelho", "127", "Pedidos críticos", "18 fora do prazo", "#d81b60"),
-        ("NFs não Agrupadas", "342", "Notas pendentes", "R$ 1,9 mi em análise", "#5e35b1"),
-        ("Faturas dos OPLs", "94,7%", "Faturas processadas", "23 pendências abertas", "#3949ab"),
-        ("Recebimento de Usados", "1.284", "Materiais recebidos", "91,2% concluídos", "#7cb342"),
-        ("Nível de Serviços dos OPLs", "95,3%", "Nível de serviço", "Meta operacional: 95%", "#00acc1"),
-        ("Forecast e Realizado", "98,1%", "Aderência ao forecast", "Desvio de 1,9%", "#f4511e"),
-        ("Simulação de Pedidos", "6.420", "Pedidos simulados", "3 cenários disponíveis", "#6d4c41"),
+    # Valores demonstrativos para validação do layout executivo.
+    kpis = [
+        ("📦", "VOLUME RECEBIDO", "1,28 MM", "Unidades", "▲ 8,6% vs mês anterior", "#18b84b"),
+        ("🚚", "EXPEDIÇÕES REALIZADAS", "1,14 MM", "Unidades", "▲ 7,3% vs mês anterior", "#18b84b"),
+        ("💲", "CUSTO LOGÍSTICO", "R$ 12,47 MM", "Acumulado no mês", "▼ 4,2% vs mês anterior", "#e53935"),
+        ("🕒", "SLA OPERACIONAL", "96,8%", "No mês", "▲ 2,1 p.p. vs mês anterior", "#18b84b"),
+        ("🔄", "ÍNDICE DE REVERSA", "2,45%", "Do total de expedições", "▼ 0,35 p.p. vs mês anterior", "#18b84b"),
+        ("🙂", "NPS INTERNO", "89", "Satisfação", "▲ 3 pontos vs mês anterior", "#18b84b"),
     ]
-    cab1, cab2 = st.columns([4, 1])
-    with cab1:
-        st.markdown('<div class="general-dashboard-title">Visão Geral da Operação</div>', unsafe_allow_html=True)
-        st.markdown('<div class="general-dashboard-subtitle">Resumo integrado dos indicadores logísticos</div>', unsafe_allow_html=True)
-    with cab2:
-        st.markdown('<div class="demo-badge">DADOS DEMONSTRATIVOS</div>', unsafe_allow_html=True)
-    st.info("Os valores desta versão são demonstrativos para validação do layout. Na próxima etapa, cada card será conectado às colunas e regras das bases oficiais.")
-    st.markdown('<div class="general-section-title">Resumo por indicador</div>', unsafe_allow_html=True)
-    for inicio in range(0, len(resumos), 5):
-        for coluna, item in zip(st.columns(5, gap="small"), resumos[inicio:inicio + 5]):
-            with coluna:
-                indicador, valor, rotulo, detalhe, cor = item
-                card = (
-                    f'<div class="summary-indicator-card" style="--accent:{cor}">'
-                    f'<div class="summary-indicator-name">{html.escape(indicador)}</div>'
-                    f'<div class="summary-indicator-value">{html.escape(valor)}</div>'
-                    f'<div class="summary-indicator-label">{html.escape(rotulo)}</div>'
-                    f'<div class="summary-indicator-detail">{html.escape(detalhe)}</div></div>'
-                )
-                st.markdown(card, unsafe_allow_html=True)
-    meses = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov"]
-    df_mensal = pd.DataFrame({"Mês": meses, "Pedidos": [62,103,293,42,36,38,47,123,294,59,106], "Concluídos": [15,27,66,9,8,10,13,23,65,15,27]}).melt("Mês", var_name="Série", value_name="Quantidade")
-    status_df = pd.DataFrame({"Status": ["Concluídos", "Em execução", "Pendentes", "Atrasados"], "Quantidade": [743,318,315,105]})
-    st.markdown('<div class="general-section-title">Desempenho operacional</div>', unsafe_allow_html=True)
-    graf1, graf2 = st.columns([2, 1], gap="medium")
-    with graf1:
-        st.markdown('<div class="chart-panel-title">Volume mensal consolidado</div>', unsafe_allow_html=True)
-        chart = alt.Chart(df_mensal).mark_bar(cornerRadiusTopLeft=3, cornerRadiusTopRight=3).encode(
-            x=alt.X("Mês:N", sort=meses, axis=alt.Axis(labelColor="#dbe2ea", title=None)),
-            y=alt.Y("Quantidade:Q", axis=alt.Axis(labelColor="#dbe2ea", gridColor="#394553", title=None)),
-            color=alt.Color("Série:N", scale=alt.Scale(domain=["Pedidos", "Concluídos"], range=["#ff3b3b", "#2196f3"]), legend=alt.Legend(labelColor="#e8edf2", title=None, orient="top")),
-            xOffset="Série:N", tooltip=["Mês", "Série", "Quantidade"]
-        ).properties(height=290).configure_view(stroke=None).configure(background="#19232e")
-        st.altair_chart(chart, use_container_width=True)
-    with graf2:
-        st.markdown('<div class="chart-panel-title">Distribuição por status</div>', unsafe_allow_html=True)
-        donut = alt.Chart(status_df).mark_arc(innerRadius=68, outerRadius=112).encode(
-            theta=alt.Theta("Quantidade:Q"),
-            color=alt.Color("Status:N", scale=alt.Scale(domain=["Concluídos","Em execução","Pendentes","Atrasados"], range=["#00c853","#c6ff00","#ff9800","#ff1744"]), legend=alt.Legend(labelColor="#e8edf2", title=None, orient="bottom")),
-            tooltip=["Status", "Quantidade"]
-        ).properties(height=290).configure_view(stroke=None).configure(background="#19232e")
-        st.altair_chart(donut, use_container_width=True)
-    detalhes = [
-        ("Principais pendências", pd.DataFrame({"Categoria":["Canal Vermelho","NFs não agrupadas","Faturas OPLs","Recebimento"],"Quantidade":[127,342,23,113]}), "#ff4b4b"),
-        ("Indicadores abaixo da meta", pd.DataFrame({"Indicador":["Ocupação CDs","Atendimento OVs","Recebimento","LPs"],"Desvio":[8.6,6.9,3.8,2.2]}), "#ab68c5"),
-        ("Aderência por frente", pd.DataFrame({"Frente":["Forecast","OPLs","Faturamento","DRE"],"Percentual":[98.1,95.3,96.4,104.2]}), "#26a69a"),
-    ]
-    for coluna, (titulo, base, cor) in zip(st.columns(3, gap="medium"), detalhes):
+    topo1, topo2, topo3 = st.columns([3.4, 1.15, 1.35])
+    with topo1:
+        st.markdown('<div class="cio-title">Central de Inteligência Operacional</div><div class="cio-subtitle">Gerência de Armazenagem, Triagem e Reversa</div>', unsafe_allow_html=True)
+    with topo2:
+        st.markdown('<div class="cio-update">📅 &nbsp; Última atualização:<br><strong>23/11/2026 12:30</strong></div>', unsafe_allow_html=True)
+    with topo3:
+        periodo = st.selectbox("Período", ["Mês atual (Novembro/2026)", "Últimos 3 meses", "Últimos 6 meses", "Ano 2026"], key="periodo_visao_geral")
+    st.markdown('<div class="demo-strip">DADOS DEMONSTRATIVOS PARA VALIDAÇÃO DO LAYOUT</div>', unsafe_allow_html=True)
+
+    for coluna, item in zip(st.columns(6, gap="small"), kpis):
         with coluna:
-            st.markdown(f'<div class="chart-panel-title">{titulo}</div>', unsafe_allow_html=True)
-            xcol, ycol = base.columns[1], base.columns[0]
-            chart = alt.Chart(base).mark_bar(cornerRadiusEnd=4, color=cor).encode(
-                x=alt.X(f"{xcol}:Q", axis=alt.Axis(labelColor="#dbe2ea", gridColor="#394553", title=None)),
-                y=alt.Y(f"{ycol}:N", sort="-x", axis=alt.Axis(labelColor="#dbe2ea", title=None)), tooltip=list(base.columns)
-            ).properties(height=220).configure_view(stroke=None).configure(background="#19232e")
-            st.altair_chart(chart, use_container_width=True)
+            icone, titulo, valor, unidade, variacao, cor = item
+            st.markdown(
+                f'<div class="cio-kpi"><div class="cio-kpi-head"><span class="cio-kpi-icon">{icone}</span><span class="cio-kpi-title">{titulo}</span></div>'
+                f'<div class="cio-kpi-value">{valor}</div><div class="cio-kpi-unit">{unidade}</div>'
+                f'<div class="cio-kpi-change" style="color:{cor}">{variacao}</div><div class="cio-spark">⌁╱⌁╱╲╱</div></div>',
+                unsafe_allow_html=True,
+            )
+
+    regioes = pd.DataFrame({"Região":["Sudeste","Sul","Nordeste","Centro-Oeste","Norte"],"Participação":[45,19,18,11,7]})
+    cds = pd.DataFrame({"CD":["CD Jundiaí","CD Cajamar","CD Betim","CD Curitiba","CD Goiânia"],"Volume":[245890,214335,172889,138371,125667],"SLA":[98.7,97.1,95.4,95.0,94.3],"Reversa":[1.92,2.31,2.71,2.88,3.12]})
+    alertas = [
+        ("🔴","SLA abaixo da meta no CD Betim","SLA: 95,4% (Meta: 97%)","Há 2h"),
+        ("🟠","Aumento do índice de reversa no CD Goiânia","Índice: 3,12% (Meta: < 2,5%)","Há 3h"),
+        ("🟠","Pendências de faturamento com transportadoras","Total: R$ 1,27 MM","Há 4h"),
+        ("🔴","Atraso em pedidos Canal Vermelho","Pedidos em atraso: 1.248","Há 5h"),
+        ("🟠","Estoque de usados acima do limite no CD Curitiba","Estoque: 12.540 un.","Há 6h"),
+    ]
+    c1,c2,c3 = st.columns([1.05,1,1.08], gap="medium")
+    with c1:
+        st.markdown('<div class="cio-panel-title">OPERAÇÃO POR REGIÃO</div><div class="cio-panel-sub">Volume recebido • participação no mês</div>', unsafe_allow_html=True)
+        chart = alt.Chart(regioes).mark_bar(cornerRadiusEnd=4, color="#b61923").encode(
+            x=alt.X("Participação:Q", axis=alt.Axis(labelColor="#cbd5df", gridColor="#362329", title=None)),
+            y=alt.Y("Região:N", sort="-x", axis=alt.Axis(labelColor="#f2f4f7", title=None)),
+            tooltip=["Região", "Participação"]
+        ).properties(height=300).configure_view(stroke=None).configure(background="#100c0f")
+        st.altair_chart(chart, use_container_width=True)
+    with c2:
+        st.markdown('<div class="cio-panel-title">RANKING DOS CENTROS DE DISTRIBUIÇÃO</div><div class="cio-panel-sub">Desempenho consolidado no mês</div>', unsafe_allow_html=True)
+        df_cd=cds.copy(); df_cd["Volume recebido"]=df_cd["Volume"].map(lambda x:f"{x:,.0f}".replace(",",".")); df_cd["SLA"] = df_cd["SLA"].map(lambda x:f"{x:.1f}%".replace(".",",")); df_cd["Índice reversa"] = df_cd["Reversa"].map(lambda x:f"{x:.2f}%".replace(".",","))
+        st.dataframe(df_cd[["CD","Volume recebido","SLA","Índice reversa"]], use_container_width=True, hide_index=True, height=300)
+    with c3:
+        st.markdown('<div class="cio-panel-title">ALERTAS E DESVIOS CRÍTICOS <span class="alert-count">12</span></div>', unsafe_allow_html=True)
+        for icone,titulo,detalhe,tempo in alertas:
+            st.markdown(f'<div class="cio-alert"><span class="cio-alert-icon">{icone}</span><span><b>{titulo}</b><small>{detalhe}</small></span><em>{tempo}</em></div>', unsafe_allow_html=True)
+
+    tendencias = pd.DataFrame({"Semana":["S1","S2","S3","S4","S5"],"SLA":[96.2,96.1,96.3,96.6,96.8],"Reversa":[2.70,2.65,2.58,2.42,2.45],"Custo":[12.0,12.1,12.15,12.3,12.47]}).melt("Semana",var_name="Indicador",value_name="Valor")
+    p1,p2,p3=st.columns([1.05,1,1],gap="medium")
+    with p1:
+        st.markdown('<div class="cio-panel-title">PROJETOS E BENEFÍCIOS FINANCEIROS</div>', unsafe_allow_html=True)
+        st.markdown('<div class="project-grid"><div><b>P0 · Críticos</b><strong>7</strong><small>72% concluídos</small></div><div><b>P1 · Altos</b><strong>11</strong><small>58% concluídos</small></div><div><b>P2 · Médios</b><strong>9</strong><small>34% concluídos</small></div><div><b>P3 · Baixos</b><strong>6</strong><small>21% concluídos</small></div></div>',unsafe_allow_html=True)
+        st.markdown('<div class="financial-row"><div><small>REALIZADO</small><b>R$ 8,27 MM</b></div><div><small>PREVISTO</small><b>R$ 10,60 MM</b></div><div><small>FORECAST</small><b>R$ 12,90 MM</b></div></div>',unsafe_allow_html=True)
+    with p2:
+        st.markdown('<div class="cio-panel-title">TENDÊNCIA DOS PRINCIPAIS INDICADORES</div>',unsafe_allow_html=True)
+        line=alt.Chart(tendencias).mark_line(point=True,strokeWidth=3).encode(x=alt.X("Semana:N",axis=alt.Axis(labelColor="#cbd5df",title=None)),y=alt.Y("Valor:Q",axis=alt.Axis(labelColor="#cbd5df",gridColor="#362329",title=None),scale=alt.Scale(zero=False)),color=alt.Color("Indicador:N",scale=alt.Scale(range=["#f42b35","#f5b62c","#7c858d"]),legend=alt.Legend(labelColor="#e6e8eb",title=None)),tooltip=["Semana","Indicador","Valor"]).properties(height=260).configure_view(stroke=None).configure(background="#100c0f")
+        st.altair_chart(line,use_container_width=True)
+    with p3:
+        st.markdown('<div class="cio-panel-title">DESTAQUES DA SEMANA</div>',unsafe_allow_html=True)
+        destaques=["SLA acima da meta em 15 dos 17 CDs","Redução de 5,2% no índice de reversa","Projeto de automação de inventário concluído","Economia de R$ 620 mil em fretes","Início da implantação WMS no CD Jundiaí","Acompanhamento de atrasos no Canal Vermelho"]
+        for i,texto in enumerate(destaques): st.markdown(f'<div class="cio-highlight">{"✅" if i<4 else "➡️"} {texto}</div>',unsafe_allow_html=True)
 
 
 def exibir_atualizacoes():
@@ -1701,6 +1699,9 @@ div[data-testid="column"]:has([class*="st-key-card_indicador_"]:hover) .card-ind
 /* Painel executivo escuro inspirado no modelo de referência */
 .general-dashboard-title{font-size:1.7rem;color:#202633;font-weight:850;line-height:1.15;margin:.2rem 0}.general-dashboard-subtitle{font-size:.78rem;color:#697481}.demo-badge{margin-top:8px;padding:8px 10px;border-radius:8px;background:#8c10d4;color:#fff;text-align:center;font-size:.66rem;font-weight:850;letter-spacing:.4px}
 .general-section-title{font-size:1.03rem;color:#202633;font-weight:820;margin:18px 0 8px;padding-left:9px;border-left:4px solid #e53935}.summary-indicator-card{min-height:148px;border:1px solid #7f8a95;border-top:4px solid var(--accent);border-radius:14px;background:#1a2530;padding:13px 12px;box-shadow:0 5px 14px rgba(0,0,0,.22);box-sizing:border-box}.summary-indicator-name{font-size:.72rem;color:#e9eef3;font-weight:760;line-height:1.2;min-height:34px}.summary-indicator-value{font-size:1.55rem;color:#fff;font-weight:900;margin:7px 0 3px;line-height:1}.summary-indicator-label{font-size:.68rem;color:#c9d2db;font-weight:600}.summary-indicator-detail{font-size:.61rem;color:#8fa0ae;margin-top:9px;line-height:1.2}.chart-panel-title{font-size:.86rem;color:#f2f5f8;font-weight:800;background:#19232e;border:1px solid #65717d;border-bottom:0;border-radius:12px 12px 0 0;padding:9px 11px;margin-top:2px}[data-testid="stVegaLiteChart"]{background:#19232e;border:1px solid #65717d;border-top:0;border-radius:0 0 12px 12px;padding:3px 7px 7px;margin-bottom:10px}@media(max-width:900px){.summary-indicator-card{min-height:132px}.summary-indicator-value{font-size:1.3rem}.general-dashboard-title{font-size:1.4rem}}
+
+/* Visão geral executiva no modelo vermelho/preto */
+.cio-title{font-size:1.55rem;font-weight:900;color:#fff;line-height:1.1}.cio-subtitle{font-size:.75rem;color:#a9a3a5;margin-top:4px}.cio-update{font-size:.67rem;color:#aaa;padding:7px 0}.cio-update strong{color:#fff;font-size:.78rem}.demo-strip{background:linear-gradient(90deg,#7d0710,#d21722,#7d0710);color:#fff;text-align:center;font-size:.62rem;font-weight:850;letter-spacing:.7px;padding:5px;border-radius:6px;margin:7px 0 11px}.cio-kpi{height:156px;background:linear-gradient(145deg,#1a1013,#0d0b0d);border:1px solid #50272c;border-radius:14px;padding:13px;box-shadow:inset 0 0 20px rgba(180,0,12,.08),0 7px 18px rgba(0,0,0,.3);position:relative}.cio-kpi-head{display:flex;align-items:center;gap:8px}.cio-kpi-icon{display:flex;align-items:center;justify-content:center;width:42px;height:42px;border-radius:50%;background:linear-gradient(145deg,#ef2630,#a70710);font-size:1.3rem}.cio-kpi-title{font-size:.62rem;color:#f4f0f1;font-weight:850;line-height:1.2}.cio-kpi-value{font-size:1.35rem;color:#fff;font-weight:900;margin:10px 0 2px}.cio-kpi-unit{font-size:.62rem;color:#aaa}.cio-kpi-change{font-size:.58rem;font-weight:750;position:absolute;bottom:11px;left:13px}.cio-spark{position:absolute;right:10px;bottom:8px;color:#d7202c;font-size:1.15rem}.cio-panel-title{background:#120d0f;border:1px solid #50272c;border-bottom:0;border-radius:13px 13px 0 0;color:#fff;font-size:.76rem;font-weight:900;padding:10px 12px}.cio-panel-sub{background:#120d0f;color:#999;font-size:.6rem;padding:0 12px 7px;border-left:1px solid #50272c;border-right:1px solid #50272c}.alert-count{background:#c1121f;border-radius:10px;padding:2px 7px;margin-left:5px}.cio-alert{display:grid;grid-template-columns:28px 1fr 42px;gap:7px;align-items:center;background:#100c0e;border:1px solid #3a2428;border-top:0;padding:9px;color:#eee;font-size:.66rem}.cio-alert small{display:block;color:#a6a0a2;margin-top:3px}.cio-alert em{font-style:normal;color:#d0444b;font-size:.58rem;text-align:right}.project-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;background:#100c0e;border:1px solid #50272c;padding:9px}.project-grid div{background:#171013;border:1px solid #41282b;padding:8px;border-radius:8px}.project-grid b,.project-grid small{display:block;color:#bbb;font-size:.58rem}.project-grid strong{display:block;color:#fff;font-size:1.25rem;margin:6px 0}.financial-row{display:grid;grid-template-columns:repeat(3,1fr);background:#100c0e;border:1px solid #50272c;border-top:0;padding:10px}.financial-row div{border-right:1px solid #3c292c;text-align:center}.financial-row div:last-child{border:0}.financial-row small{display:block;color:#aaa;font-size:.55rem}.financial-row b{display:block;color:#fff;font-size:.84rem;margin-top:5px}.financial-row div:first-child b{color:#26c45a}.cio-highlight{background:#100c0e;border:1px solid #3a2428;border-top:0;color:#ddd;padding:10px;font-size:.66rem}[data-testid="stAppViewContainer"]{background:radial-gradient(circle at 20% 0%,#37080d 0,#12090c 28%,#070708 70%)!important}[data-testid="stVegaLiteChart"]{background:#100c0f!important;border-color:#50272c!important}@media(max-width:900px){.cio-kpi{height:140px}.cio-kpi-value{font-size:1.12rem}.project-grid{grid-template-columns:repeat(2,1fr)}}
 </style>
 <div class="portal-head portal-head-base">
   <div class="portal-brand">
