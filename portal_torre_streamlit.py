@@ -635,16 +635,21 @@ def exibir_visao_geral():
     st.markdown(f'<div class="cio-panel-title">DESEMPENHO COMPARATIVO DOS CDs</div><div class="cio-panel-sub">Score de 0 a 100: combina SLA, índice de reversa e ocupação. Quanto maior, melhor.</div>',unsafe_allow_html=True)
     perf=cds.sort_values("Score")
     ordem_perf=perf.sort_values("Score",ascending=False)["CD"].tolist()
-    perf_base=alt.Chart(perf).encode(
-        x=alt.X("Score:Q",scale=alt.Scale(domain=[81.4,96]),axis=alt.Axis(labelColor="#cbd5df",gridColor="#362329",title="Score operacional",titleColor="#cbd5df")),
+    perf_plot=perf.copy()
+    perf_plot["Barra"]=perf_plot["Score"]-84
+    perf_base=alt.Chart(perf_plot).encode(
         y=alt.Y("CD:N",sort=ordem_perf,axis=None),
         color=alt.Color("Faixa desempenho:N",scale=alt.Scale(domain=["Excelente","Estável","Atenção"],range=["#1dc267","#f2a51a","#ef3340"]),legend=alt.Legend(labelColor="#fff",title=None,orient="top")),
         tooltip=["Rank","CD",alt.Tooltip("Score:Q",format=".1f"),alt.Tooltip("SLA:Q",format=".1f"),alt.Tooltip("Reversa:Q",format=".2f"),alt.Tooltip("Ocupação:Q",format=".0f"),"Faixa desempenho"]
     )
-    perf_bars=perf_base.mark_bar(cornerRadiusEnd=6,size=24)
-    perf_scores=perf_base.transform_calculate(Rotulo="format(datum.Score, '.1f')").mark_text(align="right",dx=-8,color="white",fontSize=12,fontWeight="bold").encode(text="Rotulo:N")
-    perf_names=alt.Chart(perf).mark_text(align="left",baseline="middle",dx=5,color="#f7f7f8",fontSize=13,fontWeight="bold").encode(
-        x=alt.datum(81.55),y=alt.Y("CD:N",sort=ordem_perf,axis=None),text="CD:N")
+    perf_bars=perf_base.mark_bar(cornerRadiusEnd=6,size=24).encode(
+        x=alt.X("Barra:Q",scale=alt.Scale(domain=[-3.2,12]),axis=alt.Axis(values=[0,2,4,6,8,10,12],labelExpr="datum.value + 84",labelColor="#cbd5df",gridColor="#362329",title="Score operacional",titleColor="#cbd5df")),
+        x2=alt.value(0),
+    )
+    perf_scores=perf_base.transform_calculate(Rotulo="format(datum.Score, '.1f')").mark_text(align="right",dx=-8,color="white",fontSize=12,fontWeight="bold").encode(
+        x=alt.X("Barra:Q",scale=alt.Scale(domain=[-3.2,12])),text="Rotulo:N")
+    perf_names=alt.Chart(perf_plot).mark_text(align="left",baseline="middle",color="#f7f7f8",fontSize=13,fontWeight="bold").encode(
+        x=alt.datum(-3.0),y=alt.Y("CD:N",sort=ordem_perf,axis=None),text="CD:N")
     perf_chart=(perf_bars+perf_scores+perf_names).properties(height=360,padding={"left":5,"right":18,"top":5,"bottom":5}).configure_view(stroke=None).configure(background="#100c0f")
     st.altair_chart(perf_chart,use_container_width=True)
 
@@ -660,7 +665,7 @@ def exibir_visao_geral():
         st.markdown('<div class="cio-panel-title">PERCENTUAL MENSAL • CANAL VERMELHO</div><div class="cio-panel-sub">Pedidos com e sem Canal Vermelho</div>',unsafe_allow_html=True)
         base_canal=alt.Chart(canal_long).encode(
             y=alt.Y("Mês:N",sort=["Junho","Julho","Agosto","Setembro","Outubro","Novembro"],axis=alt.Axis(labelColor="#f2f4f7",title=None)),
-            x=alt.X("Percentual:Q",stack="normalize",axis=alt.Axis(labelColor="#cbd5df",gridColor="#362329",title=None,format="%")),
+            x=alt.X("Percentual:Q",stack="zero",scale=alt.Scale(domain=[0,100]),axis=alt.Axis(values=[0,20,40,60,80,100],labelExpr="datum.value + '%'",labelColor="#cbd5df",gridColor="#362329",title=None)),
             color=alt.Color("Tipo:N",scale=alt.Scale(domain=["Pedidos Sem Canal Vermelho","Pedidos Com Canal Vermelho"],range=["#f5a623","#ef3340"]),legend=alt.Legend(labelColor="#fff",title=None,orient="top")),
             order=alt.Order("Tipo:N",sort="descending"),tooltip=["Mês","Tipo",alt.Tooltip("Percentual:Q",format=".2f")]
         )
