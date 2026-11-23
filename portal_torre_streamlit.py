@@ -1,12 +1,14 @@
 import hashlib
 import hmac
 import json
+import io
+import requests
 import html
 import os
 import secrets
 import sqlite3
-from urllib.parse import quote
-from datetime import datetime, timezone
+from urllib.parse import quote, urlparse
+from datetime import datetime, timezone, timedelta
 from zoneinfo import ZoneInfo
 from pathlib import Path
 from io import BytesIO
@@ -45,6 +47,23 @@ INDICADORES = {
     "Triagem": [],
     "Reversa": [],
 }
+
+FONTES_REMOTAS = {
+    "Separação e Faturamento": {"repositorio": "TorredaLogistica/dashboard-sla_separacao_faturamento", "branch": "main", "arquivo": "Faturamento SLA 2026.xlsb", "formato": "xlsb"},
+    "Pedidos para LPs": {"repositorio": "TorredaLogistica/Pedidos_LPs_AAs", "branch": "main", "arquivo": "Base OTIF SOE AAs e LPs.xlsx", "formato": "xlsx"},
+    "Resultado do DRE": {"repositorio": "TorredaLogistica/Resultado_DRE", "branch": "main", "arquivo": "Resultado DRE.xlsx", "formato": "xlsx"},
+    "Valores dos EAs": {"repositorio": "TorredaLogistica/Valor_Estoques_-EAs", "branch": "main", "arquivo": "Valor Estoque EAs_Consolidado.parquet", "formato": "parquet"},
+    "Atendimento de OVs nos TLs": {"repositorio": "TorredaLogistica/Atendimento-de-OVs-nos-TLs", "branch": "main", "arquivo": "Base OVs TLs.parquet", "formato": "parquet"},
+    "Taxa de Ocupação dos CDs": {"repositorio": "TorredaLogistica/Taxa_de_Ocupacao_dos_CDs", "branch": "main", "arquivo": "Ocupação dos CDs.xlsx", "formato": "xlsx"},
+    "Pedidos Canal Vermelho": {"repositorio": "TorredaLogistica/Canal_Vermelho", "branch": "main", "arquivo": "Base OTIF.parquet", "formato": "parquet"},
+    "Pedidos LPs e AAs NFs não Agrupadas": {"repositorio": "TorredaLogistica/NFs-Nao-Agrupadas", "branch": "main", "arquivo": "Base OTIF SOE AAs e LPs.xlsx", "formato": "xlsx"},
+    "Faturas dos OPLs": {"repositorio": "TorredaLogistica/Faturas_dos_OPLs", "branch": "main", "arquivo": "Base Fatura.xlsx", "formato": "xlsx"},
+    "Recebimento de Usados": {"repositorio": "TorredaLogistica/Controle_de_Recebimento_de_Usados", "branch": "main", "arquivo": "Controle de Recebimento de Materiais.xlsx", "formato": "xlsx"},
+    "Nível de Serviços dos OPLs": {"repositorio": "TorredaLogistica/Nivel_De_Servico_OPLs", "branch": "main", "arquivo": "Base Otif 2026.parquet", "formato": "parquet"},
+    "Forecast e Realizado": {"repositorio": "TorredaLogistica/Forecast_e_Realizado", "branch": "main", "arquivo": "Farol.xlsx", "formato": "xlsx"},
+    "Simulação de Pedidos": {"repositorio": "TorredaLogistica/Simulacao_Pedidos", "branch": "main", "arquivo": "Base_Pedidos_AAs_PLs_2026.parquet", "formato": "parquet"},
+}
+
 st.set_page_config(page_title="Claro | Central de Inteligência Operacional", page_icon="🔴", layout="wide")
 
 
@@ -341,27 +360,221 @@ def exibir_relatorio_acessos(usuarios_admin):
         )
 
 
+def _github_token():
+    try:
+        return str(st.secrets.get("GITHUB_TOKEN", "")).strip()
+    except Exception:
+        return ""
+
+
+def _github_headers():
+    headers = {"Accept": "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28"}
+    token = _github_token()
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    return headers
+
+
+@st.cache_data(ttl=1800, show_spinner=False)
+def obter_metadados_fonte(nome, repositorio, branch, arquivo, token_marcador=""):
+    caminho = quote(arquivo, safe="/")
+    url = f"https://api.github.com/repos/{repositorio}/contents/{caminho}?ref={quote(branch)}"
+    resposta = requests.get(url, headers=_github_headers(), timeout=25)
+    if resposta.status_code == 404:
+        raise FileNotFoundError(f"Arquivo não localizado em {repositorio}: {arquivo}")
+    resposta.raise_for_status()
+    dados = resposta.json()
+    return {
+        "Indicador": nome,
+        "Repositório": repositorio,
+        "Arquivo": arquivo,
+        "Formato": Path(arquivo).suffix.lower().lstrip("."),
+        "Tamanho (MB)": round(float(dados.get("size", 0)) / 1024 / 1024, 2),
+        "Download": dados.get("download_url"),
+        "SHA": dados.get("sha"),
+        "Status": "Disponível",
+    }
+
+
+@st.cache_data(ttl=1800, show_spinner=False)
+def carregar_base_github(nome, repositorio, branch, arquivo, formato, token_marcador=""):
+    meta = obter_metadados_fonte(nome, repositorio, branch, arquivo, token_marcador)
+    download_url = meta.get("Download")
+    if not download_url:
+        raise ValueError("O GitHub não retornou uma URL de download para a base.")
+    resposta = requests.get(download_url, headers=_github_headers(), timeout=180)
+    resposta.raise_for_status()
+    conteudo = io.BytesIO(resposta.content)
+    formato = str(formato).lower()
+    if formato == "parquet":
+        return pd.read_parquet(conteudo)
+    if formato == "xlsx":
+        return pd.read_excel(conteudo, engine="openpyxl")
+    if formato == "xlsb":
+        return pd.read_excel(conteudo, engine="calamine")
+    raise ValueError(f"Formato remoto não suportado: {formato}")
+
+
+def diagnosticar_base(df):
+    datas_candidatas = []
+    palavras_data = ("data", "dt ", "date", "emissão", "emissao", "criação", "criacao")
+    for coluna in df.columns:
+        if any(palavra in str(coluna).lower() for palavra in palavras_data):
+            serie = pd.to_datetime(df[coluna], errors="coerce", dayfirst=True)
+            if serie.notna().any(): datas_candidatas.append((str(coluna), serie.max()))
+    coluna_data, data_maxima = (max(datas_candidatas, key=lambda x: x[1]) if datas_candidatas else (None, None))
+    return {
+        "Linhas": int(len(df)),
+        "Colunas": int(len(df.columns)),
+        "Coluna de data": coluna_data or "Não identificada",
+        "Data máxima": data_maxima.strftime("%d/%m/%Y") if data_maxima is not None and not pd.isna(data_maxima) else "Não identificada",
+    }
+
+
+def exibir_fontes_dados():
+    st.markdown('<div class="overview-title">Fontes de dados do GitHub</div>', unsafe_allow_html=True)
+    st.caption("Monitoramento dos arquivos usados pelos indicadores. Os metadados são atualizados a cada 30 minutos.")
+    c1, c2 = st.columns([1, 3])
+    with c1:
+        if st.button("Atualizar fontes agora", use_container_width=True, key="atualizar_fontes_remotas"):
+            st.cache_data.clear(); st.rerun()
+    with c2:
+        st.caption("Para repositórios privados, configure GITHUB_TOKEN nos Secrets do Streamlit com permissão somente de leitura.")
+    registros=[]
+    token_marcador = "configurado" if _github_token() else "publico"
+    for nome, fonte in FONTES_REMOTAS.items():
+        try:
+            registros.append(obter_metadados_fonte(nome, fonte["repositorio"], fonte["branch"], fonte["arquivo"], token_marcador))
+        except Exception as exc:
+            registros.append({"Indicador":nome,"Repositório":fonte["repositorio"],"Arquivo":fonte["arquivo"],"Formato":fonte["formato"],"Tamanho (MB)":None,"Download":None,"SHA":None,"Status":f"Indisponível: {str(exc)[:120]}"})
+    df_status=pd.DataFrame(registros)
+    disponiveis=int((df_status["Status"]=="Disponível").sum())
+    k1,k2,k3=st.columns(3)
+    k1.metric("Fontes configuradas",len(df_status)); k2.metric("Disponíveis",disponiveis); k3.metric("Com falha",len(df_status)-disponiveis)
+    st.dataframe(df_status[["Indicador","Repositório","Arquivo","Formato","Tamanho (MB)","Status"]],use_container_width=True,hide_index=True)
+    st.markdown("### Diagnóstico de uma base")
+    selecionado=st.selectbox("Indicador",list(FONTES_REMOTAS.keys()),key="fonte_diagnostico")
+    if st.button("Carregar e analisar base selecionada",type="primary",use_container_width=True,key="analisar_fonte_remota"):
+        fonte=FONTES_REMOTAS[selecionado]
+        try:
+            with st.spinner(f"Baixando e analisando {selecionado}..."):
+                df=carregar_base_github(selecionado,fonte["repositorio"],fonte["branch"],fonte["arquivo"],fonte["formato"],token_marcador)
+            diagnostico=diagnosticar_base(df)
+            cols=st.columns(4)
+            for col,(rotulo,valor) in zip(cols,diagnostico.items()): col.metric(rotulo,valor)
+            st.dataframe(df.head(50),use_container_width=True,hide_index=True)
+        except Exception as exc:
+            st.error(f"Não foi possível carregar a base: {exc}")
+
+
+def catalogo_visao_geral():
+    hoje = datetime.now(FUSO_BRASILIA).date()
+    meses = {"janeiro":1,"fevereiro":2,"março":3,"abril":4,"maio":5,"junho":6,"julho":7,"agosto":8,"setembro":9,"outubro":10,"novembro":11,"dezembro":12}
+    resultado=[]
+    for area,itens in INDICADORES.items():
+        for item in itens:
+            periodicidade=item.get("periodicidade") or "A definir"
+            ultima=item.get("ultima_atualizacao") or "-"
+            data_ref=None
+            try:
+                if ultima.count("/")==2 and " a " not in ultima.lower(): data_ref=datetime.strptime(ultima,"%d/%m/%Y").date()
+                else:
+                    for nome,numero in meses.items():
+                        if nome in ultima.lower():
+                            ano=int(ultima.split("/")[-1]); data_ref=(datetime(ano+1,1,1)-timedelta(days=1)).date() if numero==12 else (datetime(ano,numero+1,1)-timedelta(days=1)).date(); break
+            except (ValueError,TypeError): data_ref=None
+            if "constru" in periodicidade.lower() or not item.get("url"): situacao="Em construção"
+            elif data_ref and (hoje-data_ref).days>45: situacao="Revisar atualização"
+            else: situacao="Disponível"
+            resultado.append({"Área":area,"Indicador":item["titulo"],"Periodicidade":periodicidade,"Última atualização":ultima,"Situação":situacao,"Ícone":item.get("icone") or "📊"})
+    return resultado
+
+
+def card_executivo(titulo,valor,detalhe,classe=""):
+    st.markdown(f'<div class="overview-kpi {classe}"><div class="overview-kpi-label">{html.escape(str(titulo))}</div><div class="overview-kpi-value">{html.escape(str(valor))}</div><div class="overview-kpi-detail">{html.escape(str(detalhe))}</div></div>',unsafe_allow_html=True)
+
+
+def exibir_visao_geral():
+    catalogo=catalogo_visao_geral(); df_cat=pd.DataFrame(catalogo)
+    fim=datetime.now(FUSO_BRASILIA).date(); inicio=fim-timedelta(days=29)
+    acessos=consultar_acessos_indicadores(inicio,fim); df=pd.DataFrame(acessos)
+    total=len(catalogo); disponiveis=sum(x["Situação"]=="Disponível" for x in catalogo); revisar=sum(x["Situação"]=="Revisar atualização" for x in catalogo); construcao=sum(x["Situação"]=="Em construção" for x in catalogo)
+    st.markdown('<div class="overview-title">Visão Geral Operacional</div>',unsafe_allow_html=True)
+    st.caption("Resumo executivo da disponibilidade, atualização e utilização dos indicadores da Central.")
+    for col,dados in zip(st.columns(5,gap="small"),[("Indicadores",total,"catálogo da Central",""),("Disponíveis",disponiveis,"prontos para consulta","positivo"),("Revisar",revisar,"atualização acima de 45 dias","alerta"),("Em construção",construcao,"ainda não disponíveis",""),("Áreas ativas",len({x['Área'] for x in catalogo if x['Situação']!='Em construção'}),"com painéis publicados","")]):
+        with col: card_executivo(*dados)
+    st.markdown("### Utilização da Central")
+    usuarios=len({x.get("usuario_id") for x in acessos if x.get("usuario_id") is not None}); lider="Sem acessos"; qtd=0
+    if not df.empty:
+        ranking=df.groupby("indicador").size().sort_values(ascending=False); lider=str(ranking.index[0]); qtd=int(ranking.iloc[0])
+    for col,dados in zip(st.columns([1,1,2],gap="small"),[("Acessos em 30 dias",len(acessos),"cliques registrados",""),("Usuários distintos",usuarios,"com acesso registrado",""),("Indicador mais acessado",lider,f"{qtd} acesso(s)","destaque")]):
+        with col: card_executivo(*dados)
+    g1,g2=st.columns([1.15,1],gap="large")
+    with g1:
+        st.markdown("#### Indicadores mais acessados")
+        if df.empty: st.info("Ainda não há acessos registrados nos últimos 30 dias.")
+        else: st.bar_chart(df.groupby("indicador").size().sort_values(ascending=False).head(8).rename("Acessos"),horizontal=True,color="#d52b1e")
+    with g2:
+        st.markdown("#### Acessos por dia")
+        if df.empty: st.info("A evolução aparecerá após os primeiros acessos.")
+        else:
+            df["Data"]=pd.to_datetime(df["acessado_em"],utc=True,errors="coerce").dt.tz_convert(FUSO_BRASILIA).dt.date
+            serie=df.groupby("Data").size().rename("Acessos"); intervalo=pd.date_range(inicio,fim,freq="D").date
+            st.line_chart(serie.reindex(intervalo,fill_value=0),color="#d52b1e")
+    st.markdown("### Saúde do catálogo")
+    c1,c2=st.columns([1.25,1],gap="large")
+    with c1:
+        resumo=df_cat.groupby(["Área","Situação"]).size().rename("Quantidade").reset_index().pivot(index="Área",columns="Situação",values="Quantidade").fillna(0)
+        st.bar_chart(resumo)
+    with c2:
+        st.markdown("#### Pontos de atenção")
+        if revisar: st.warning(f"{revisar} indicador(es) precisam de revisão da atualização.")
+        if construcao: st.info(f"{construcao} indicador(es) estão em construção.")
+        if not revisar and not construcao: st.success("Catálogo atualizado e disponível.")
+        st.markdown("- Painéis com mais de 45 dias entram em revisão.\n- Datas são mantidas manualmente no catálogo.\n- Os detalhes continuam na opção **Indicadores**.")
+    st.markdown("### Acesso rápido")
+    atalhos=[x for x in catalogo if x["Situação"]=="Disponível"][:4]
+    for col,item in zip(st.columns(4,gap="medium"),atalhos):
+        with col: st.markdown(f'<div class="quick-card"><div class="quick-icon">{html.escape(item["Ícone"])}</div><div class="quick-name">{html.escape(item["Indicador"])}</div><div class="quick-meta">{html.escape(item["Área"])} · {html.escape(item["Última atualização"])}</div></div>',unsafe_allow_html=True)
+
+
+def exibir_atualizacoes():
+    st.markdown('<div class="overview-title">Atualizações dos indicadores</div>',unsafe_allow_html=True)
+    st.caption("Periodicidade, referência dos dados e disponibilidade dos painéis.")
+    df=pd.DataFrame(catalogo_visao_geral()); area=st.selectbox("Área",["Todas"]+list(INDICADORES.keys()),key="filtro_area_atualizacoes")
+    if area!="Todas": df=df[df["Área"]==area]
+    st.dataframe(df,use_container_width=True,hide_index=True)
+
+
+def exibir_minha_conta():
+    u=st.session_state.usuario_logado or {}
+    st.markdown('<div class="overview-title">Minha conta</div>',unsafe_allow_html=True)
+    with st.container(border=True):
+        c1,c2=st.columns(2)
+        with c1: st.write(f"**Nome:** {u.get('nome_completo') or 'Não informado'}"); st.write(f"**Usuário:** {u.get('usuario') or 'Não informado'}"); st.write(f"**E-mail:** {u.get('email') or 'Não informado'}")
+        with c2: st.write(f"**Perfil:** {u.get('perfil') or 'USUARIO'}"); st.write(f"**Aprovado em:** {data_hora_brasilia(u.get('aprovado_em'))}"); st.write("**Status:** Ativo")
+
+
+def exibir_portal_usuario():
+    u=st.session_state.usuario_logado or {}; nome=u.get("nome_completo") or u.get("usuario") or "Usuário"
+    with st.sidebar:
+        st.markdown('<div class="side-brand">Central Operacional</div>',unsafe_allow_html=True); st.caption(f"Acesso de {nome}")
+        pagina=st.radio("Navegação",["🏠 Visão Geral","📊 Indicadores","🗄️ Fontes de dados","📅 Atualizações","👤 Minha conta"],label_visibility="collapsed",key="pagina_portal_usuario")
+        st.divider()
+        if st.button("Sair",use_container_width=True,key="sair_menu_lateral"):
+            st.session_state.usuario_logado=None; st.session_state.pop("pagina_portal_usuario",None); st.rerun()
+    if pagina=="🏠 Visão Geral": exibir_visao_geral()
+    elif pagina=="📊 Indicadores": exibir_central_indicadores()
+    elif pagina=="🗄️ Fontes de dados": exibir_fontes_dados()
+    elif pagina=="📅 Atualizações": exibir_atualizacoes()
+    else: exibir_minha_conta()
+
+
 def exibir_central_indicadores():
     usuario_atual = st.session_state.usuario_logado or {}
-    nome = usuario_atual.get("nome_completo") or usuario_atual.get("usuario") or "Usuário"
-
-    usuario_exibicao = usuario_atual.get("usuario") or nome
-    esquerda_controles, centro_controles, direita_controles = st.columns([2.7, 1.1, 1.2])
-    with esquerda_controles:
-        st.markdown('<span class="header-area-anchor menu-model-anchor"></span>', unsafe_allow_html=True)
-        area = st.segmented_control(
-            "Área operacional",
-            list(INDICADORES.keys()),
-            default="Armazenagem",
-            key="area_indicadores_padrao",
-            label_visibility="collapsed",
-        ) or "Armazenagem"
-    with direita_controles:
-        st.markdown(f'<div class="header-user-name">Usuário: {usuario_exibicao}</div><span class="exit-model-anchor"></span>', unsafe_allow_html=True)
-        if st.button("Sair", use_container_width=True, type="secondary", key="btn_sair_header"):
-            st.session_state.usuario_logado = None
-            st.rerun()
-
+    st.markdown('<div class="overview-title">Indicadores operacionais</div>', unsafe_allow_html=True)
+    st.caption("Selecione a área e clique no card para abrir o painel detalhado.")
+    area = st.segmented_control("Área operacional", list(INDICADORES.keys()), default="Armazenagem", key="area_indicadores_padrao", label_visibility="collapsed") or "Armazenagem"
     indicadores = INDICADORES.get(area, [])
 
     if not indicadores:
@@ -1444,6 +1657,15 @@ div[data-testid="column"]:has([class*="st-key-card_indicador_"]:hover) .card-ind
   filter:none!important;
   outline:none!important;
 }
+
+[data-testid="stSidebar"]{background:linear-gradient(180deg,#fff,#f7f8fa);border-right:1px solid #e4e7eb}
+[data-testid="stSidebar"] [data-testid="stRadio"] label{padding:.55rem .65rem;border-radius:10px}
+[data-testid="stSidebar"] [data-testid="stRadio"] label:has(input:checked){background:#fff0ee;color:#c5221f;font-weight:750}
+.side-brand{font-size:1.15rem;font-weight:850;color:#b51f25}.overview-title{font-size:1.58rem;font-weight:850;color:#202633;margin:.1rem 0 .25rem}
+.overview-kpi{min-height:118px;padding:16px 15px;border-radius:16px;background:#fff;border:1px solid #e5e7eb;border-top:4px solid #c9cdd3;box-shadow:0 7px 20px rgba(28,36,48,.07)}
+.overview-kpi.positivo{border-top-color:#35a853}.overview-kpi.alerta{border-top-color:#ef8b31}.overview-kpi.destaque{border-top-color:#d52b1e;background:linear-gradient(145deg,#fff,#fff5f2)}
+.overview-kpi-label{font-size:.72rem;color:#69707d;text-transform:uppercase;font-weight:750}.overview-kpi-value{font-size:1.45rem;color:#202633;font-weight:850;line-height:1.15;margin:8px 0 4px;overflow-wrap:anywhere}.overview-kpi-detail{font-size:.72rem;color:#707784}
+.quick-card{height:122px;padding:15px;border-radius:15px;background:#fff;border:1px solid #e4e6e9;border-top:4px solid #ed5b35;box-shadow:0 7px 18px rgba(35,42,55,.07)}.quick-icon{font-size:1.25rem}.quick-name{font-size:.88rem;font-weight:820;color:#202633;margin:8px 0 7px}.quick-meta{font-size:.68rem;color:#6b7280}
 </style>
 <div class="portal-head portal-head-base">
   <div class="portal-brand">
@@ -1702,7 +1924,7 @@ if st.session_state.admin_logado:
     st.stop()
 
 if st.session_state.usuario_logado:
-    exibir_central_indicadores()
+    exibir_portal_usuario()
     st.stop()
 
 opcoes = ["Entrar", "Solicitar cadastro", "Esqueci minha senha", "Administrador"]
@@ -1725,6 +1947,7 @@ if st.session_state.modo == "Entrar":
         u = autenticar_usuario(usuario, email, senha)
         if u:
             st.session_state.usuario_logado = u
+            st.session_state.pagina_portal_usuario = "🏠 Visão Geral"
             st.rerun()
         st.error("Dados inválidos ou acesso ainda não aprovado.")
 
