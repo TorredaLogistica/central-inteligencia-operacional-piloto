@@ -50,7 +50,7 @@ INDICADORES = {
 }
 
 FONTES_REMOTAS = {
-    "Separação e Faturamento": {"repositorio": "TorredaLogistica/dashboard-sla_separacao_faturamento", "branch": "main", "arquivo": "Faturamento SLA 2026.xlsb", "formato": "xlsb"},
+    "Separação e Faturamento": {"repositorio": "TorredaLogistica/dashboard-sla_separacao_faturamento", "branch": "main", "arquivo": "Faturamento SLA 2026_processado.parquet", "formato": "parquet"},
     "Pedidos para LPs": {"repositorio": "TorredaLogistica/Pedidos_LPs_AAs", "branch": "main", "arquivo": "Base OTIF SOE AAs e LPs.xlsx", "formato": "xlsx"},
     "Resultado do DRE": {"repositorio": "TorredaLogistica/Resultado_DRE", "branch": "main", "arquivo": "Resultado DRE.xlsx", "formato": "xlsx"},
     "Valores dos EAs": {"repositorio": "TorredaLogistica/Valor_Estoques_-EAs", "branch": "main", "arquivo": "Valor Estoque EAs_Consolidado.parquet", "formato": "parquet"},
