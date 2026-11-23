@@ -634,26 +634,18 @@ def exibir_visao_geral():
     alertas_base=[("🔴","SLA abaixo da meta","SLA inferior à meta operacional","Há 2h"),("🟠","Ocupação crítica","CD acima de 90% de ocupação","Há 3h"),("🟠","Pendências de faturamento","Valores aguardando tratamento","Há 4h"),("🔴","Atraso em pedidos Canal Vermelho","Pedidos críticos em atraso","Há 5h")]
     st.markdown(f'<div class="cio-panel-title">DESEMPENHO COMPARATIVO DOS CDs</div><div class="cio-panel-sub">Score de 0 a 100: combina SLA, índice de reversa e ocupação. Quanto maior, melhor.</div>',unsafe_allow_html=True)
     perf=cds.sort_values("Score")
+    ordem_perf=perf.sort_values("Score",ascending=False)["CD"].tolist()
     perf_base=alt.Chart(perf).encode(
-        x=alt.X("Score:Q",scale=alt.Scale(domain=[84,96]),axis=alt.Axis(labelColor="#cbd5df",gridColor="#362329",title="Score operacional",titleColor="#cbd5df")),
-        y=alt.Y(
-            "CD:N",
-            sort=alt.EncodingSortField(field="Score",order="descending"),
-            axis=alt.Axis(
-                labelColor="#f7f7f8",
-                labelFontSize=13,
-                labelFontWeight="bold",
-                labelLimit=190,
-                labelPadding=12,
-                title=None,
-            ),
-        ),
+        x=alt.X("Score:Q",scale=alt.Scale(domain=[81.4,96]),axis=alt.Axis(labelColor="#cbd5df",gridColor="#362329",title="Score operacional",titleColor="#cbd5df")),
+        y=alt.Y("CD:N",sort=ordem_perf,axis=None),
         color=alt.Color("Faixa desempenho:N",scale=alt.Scale(domain=["Excelente","Estável","Atenção"],range=["#1dc267","#f2a51a","#ef3340"]),legend=alt.Legend(labelColor="#fff",title=None,orient="top")),
         tooltip=["Rank","CD",alt.Tooltip("Score:Q",format=".1f"),alt.Tooltip("SLA:Q",format=".1f"),alt.Tooltip("Reversa:Q",format=".2f"),alt.Tooltip("Ocupação:Q",format=".0f"),"Faixa desempenho"]
     )
     perf_bars=perf_base.mark_bar(cornerRadiusEnd=6,size=24)
-    perf_labels=perf_base.transform_calculate(Rotulo="format(datum.Score, '.1f')").mark_text(align="right",dx=-8,color="white",fontSize=12,fontWeight="bold").encode(text="Rotulo:N")
-    perf_chart=(perf_bars+perf_labels).properties(height=360, padding={"left": 22, "right": 18, "top": 5, "bottom": 5}).configure_view(stroke=None).configure(background="#100c0f")
+    perf_scores=perf_base.transform_calculate(Rotulo="format(datum.Score, '.1f')").mark_text(align="right",dx=-8,color="white",fontSize=12,fontWeight="bold").encode(text="Rotulo:N")
+    perf_names=alt.Chart(perf).mark_text(align="left",baseline="middle",dx=5,color="#f7f7f8",fontSize=13,fontWeight="bold").encode(
+        x=alt.datum(81.55),y=alt.Y("CD:N",sort=ordem_perf,axis=None),text="CD:N")
+    perf_chart=(perf_bars+perf_scores+perf_names).properties(height=360,padding={"left":5,"right":18,"top":5,"bottom":5}).configure_view(stroke=None).configure(background="#100c0f")
     st.altair_chart(perf_chart,use_container_width=True)
 
     canal_pct=pd.DataFrame({
@@ -673,11 +665,21 @@ def exibir_visao_geral():
             order=alt.Order("Tipo:N",sort="descending"),tooltip=["Mês","Tipo",alt.Tooltip("Percentual:Q",format=".2f")]
         )
         barras=base_canal.mark_bar(cornerRadius=3)
-        sem_rotulos=alt.Chart(canal_pct).transform_calculate(Rotulo="format(datum['Pedidos Sem Canal Vermelho'], '.2f') + '%'").mark_text(align="right",dx=-7,color="#fff6dd",fontSize=12,fontWeight="bold").encode(
-            x=alt.value(590),y=alt.Y("Mês:N",sort=["Junho","Julho","Agosto","Setembro","Outubro","Novembro"]),text="Rotulo:N")
-        com_rotulos=alt.Chart(canal_pct).transform_calculate(Rotulo="format(datum['Pedidos Com Canal Vermelho'], '.2f') + '%'").mark_text(align="right",dx=-5,color="#ffffff",fontSize=11,fontWeight="bold").encode(
-            x=alt.value(690),y=alt.Y("Mês:N",sort=["Junho","Julho","Agosto","Setembro","Outubro","Novembro"]),text="Rotulo:N")
-        canal_chart=(barras+sem_rotulos+com_rotulos).properties(height=270).configure_view(stroke=None).configure(background="#100c0f")
+        sem_rotulos=alt.Chart(canal_pct).transform_calculate(
+            Posicao="datum['Pedidos Sem Canal Vermelho'] / 2",
+            Rotulo="format(datum['Pedidos Sem Canal Vermelho'], '.2f') + '%'"
+        ).mark_text(color="#21130a",fontSize=12,fontWeight="bold").encode(
+            x=alt.X("Posicao:Q",scale=alt.Scale(domain=[0,100])),
+            y=alt.Y("Mês:N",sort=["Junho","Julho","Agosto","Setembro","Outubro","Novembro"]),
+            text="Rotulo:N")
+        com_rotulos=alt.Chart(canal_pct).transform_calculate(
+            Posicao="datum['Pedidos Sem Canal Vermelho'] + datum['Pedidos Com Canal Vermelho'] / 2",
+            Rotulo="format(datum['Pedidos Com Canal Vermelho'], '.2f') + '%'"
+        ).mark_text(color="#ffffff",fontSize=11,fontWeight="bold").encode(
+            x=alt.X("Posicao:Q",scale=alt.Scale(domain=[0,100])),
+            y=alt.Y("Mês:N",sort=["Junho","Julho","Agosto","Setembro","Outubro","Novembro"]),
+            text="Rotulo:N")
+        canal_chart=(barras+sem_rotulos+com_rotulos).properties(height=270,width="container").configure_view(stroke=None).configure(background="#100c0f")
         st.altair_chart(canal_chart,use_container_width=True)
     with p2:
         st.markdown('<div class="cio-panel-title">OCUPAÇÃO DOS CDs</div><div class="cio-panel-sub">Faixa recomendada: 75% a 90%</div>',unsafe_allow_html=True)
