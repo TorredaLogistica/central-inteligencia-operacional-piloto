@@ -416,6 +416,110 @@ def carregar_base_github(nome, repositorio, branch, arquivo, formato, token_marc
     raise ValueError(f"Formato remoto não suportado: {formato}")
 
 
+class DadosEAsIndisponiveis(ValueError):
+    """Condição conhecida que pode ser exibida no card sem expor detalhes técnicos."""
+
+
+def _chave_eas(valor):
+    import unicodedata
+    texto = unicodedata.normalize("NFKD", str(valor).strip().casefold())
+    return " ".join("".join(c if c.isalnum() else " " for c in texto if not unicodedata.combining(c)).split())
+
+
+def _coluna_eas(df, *nomes):
+    colunas = {_chave_eas(c): c for c in df.columns}
+    return next((colunas[_chave_eas(n)] for n in nomes if _chave_eas(n) in colunas), None)
+
+
+def _competencia_eas(serie):
+    meses = "janeiro fevereiro março abril maio junho julho agosto setembro outubro novembro dezembro".split()
+    datas = pd.to_datetime(serie.astype(str).str.strip(), errors="coerce", dayfirst=True, format="mixed")
+    texto = serie.map(_chave_eas)
+    partes = texto.str.extract(r"^(\w+) (\d{4})$")
+    mapa = {_chave_eas(n): i for i, n in enumerate(meses, 1)}
+    mapa.update({_chave_eas(n[:3]): i for i, n in enumerate(meses, 1)})
+    mes = partes[0].map(mapa).fillna(pd.to_numeric(partes[0], errors="coerce"))
+    complemento = pd.to_datetime(dict(year=pd.to_numeric(partes[1], errors="coerce"), month=mes, day=1), errors="coerce")
+    return datas.fillna(complemento).dt.to_period("M")
+
+
+def _preparar_eas(df):
+    valor = _coluna_eas(df, "Val.utiliz.livre", "VALOR")
+    if valor is None:
+        raise DadosEAsIndisponiveis("Coluna de valor não localizada")
+    datas = pd.Series(pd.NaT, index=df.index, dtype="period[M]")
+    for nomes in (("DATA REFERÊNCIA", "DATA", "DT REFERÊNCIA", "DATA ESTOQUE", "DATA BASE", "COMPETÊNCIA"),
+                  ("MÊS/ANO", "MÊS ANO", "PERÍODO", "MES_ANO")):
+        coluna = _coluna_eas(df, *nomes)
+        if coluna is not None:
+            datas = datas.fillna(_competencia_eas(df[coluna]))
+    mes, ano = _coluna_eas(df, "MÊS"), _coluna_eas(df, "ANO")
+    if mes is not None and ano is not None:
+        datas = datas.fillna(_competencia_eas(df[mes].astype(str) + " " + df[ano].astype(str).str.replace(r"\.0$", "", regex=True)))
+    if not datas.notna().any():
+        raise DadosEAsIndisponiveis("Competência não identificada na base")
+    base = pd.DataFrame({"mes": datas, "valor": pd.to_numeric(df[valor], errors="coerce")})
+    for destino, aliases in (("cd", ("CD Origem",)), ("empresa", ("Empresa",))):
+        coluna = _coluna_eas(df, *aliases)
+        if coluna is not None:
+            base[destino] = df[coluna].map(_chave_eas)
+    dimensoes = [c for c in ("mes", "cd", "empresa") if c in base]
+    return base.groupby(dimensoes, sort=False, as_index=False)["valor"].sum(min_count=1)
+
+
+@st.cache_data(ttl=1800, show_spinner=False)
+def _carregar_resumo_eas(repositorio, branch, arquivo, formato, guia, token_marcador):
+    if formato == "xlsx":
+        meta = obter_metadados_fonte("Valores dos EAs", repositorio, branch, arquivo, token_marcador)
+        url = meta.get("Download")
+        if not url:
+            raise DadosEAsIndisponiveis("Arquivo de estoque sem URL de download")
+        resposta = requests.get(url, headers=_github_headers(), timeout=(5, 25))
+        resposta.raise_for_status()
+        df = pd.read_excel(io.BytesIO(resposta.content), sheet_name=guia, engine="openpyxl")
+    else:
+        df = carregar_base_github("Valores dos EAs", repositorio, branch, arquivo, formato, token_marcador)
+    return _preparar_eas(df)
+
+
+def _calcular_eas(base, cd, empresa):
+    # Usa a mesma competência global para não trocar o mês ao trocar o filtro.
+    atual = base["mes"].max()
+    recorte = base
+    for coluna, selecao, rotulo in (("cd", cd, "CD Origem"), ("empresa", empresa, "Empresa")):
+        if selecao != "Consolidado":
+            if coluna not in base:
+                raise DadosEAsIndisponiveis(f"Filtro {rotulo} não disponível na base")
+            recorte = recorte[recorte[coluna] == _chave_eas(selecao)]
+    valores = recorte.groupby("mes")["valor"].sum(min_count=1)
+    saldo = valores.get(atual)
+    anterior = valores.get(atual - 1)
+    if pd.isna(saldo):
+        raise DadosEAsIndisponiveis(f"Sem dados no recorte em {atual.month:02d}/{atual.year}")
+    delta = None if pd.isna(anterior) or anterior == 0 else (saldo - anterior) / abs(anterior) * 100
+    return saldo, atual, delta
+
+
+def _card_valores_eas(cd, empresa):
+    fonte = FONTES_REMOTAS["Valores dos EAs"]
+    try:
+        base = _carregar_resumo_eas(fonte["repositorio"], fonte["branch"], fonte["arquivo"],
+                                   fonte["formato"], fonte.get("guia", 0),
+                                   "configurado" if _github_token() else "publico")
+        saldo, mes, delta = _calcular_eas(base, cd, empresa)
+    except DadosEAsIndisponiveis as exc:
+        return "—", html.escape(str(exc)), "Sem comparativo mensal", "#c9bdc0"
+    except Exception:
+        return "—", "Fonte temporariamente indisponível", "Consulte Fontes de dados", "#c9bdc0"
+    valor = f"R$ {saldo / 1_000_000:,.2f} MM".replace(",", "_").replace(".", ",").replace("_", ".")
+    detalhe = f"Dados da base • {mes.month:02d}/{mes.year}"
+    if delta is None:
+        return valor, detalhe, "Sem comparativo mensal", "#c9bdc0"
+    seta = "▲ " if delta > 0 else "▼ " if delta < 0 else ""
+    comparativo = f"{seta}{delta:+.1f}% vs mês anterior".replace(".", ",")
+    return valor, detalhe, comparativo, "#20c66b" if delta > 0 else "#ff757d" if delta < 0 else "#c9bdc0"
+
+
 def diagnosticar_base(df):
     datas_candidatas = []
     palavras_data = ("data", "dt ", "date", "emissão", "emissao", "criação", "criacao")
@@ -543,15 +647,15 @@ def exibir_visao_geral():
     total_pedidos = max(1, round(15709 * perfil["fator"]))
 
     # Cards executivos demonstrativos. Os valores serão substituídos pelas bases oficiais.
-    valor_eas = 86.40 * fator_empresa if cd_selecionado == "Consolidado" else 86.40 * perfil["fator"]
+    estoque_eas = _card_valores_eas(cd_selecionado, empresa_selecionada)
     volume_separacao = max(1, round(15709 * perfil["fator"]))
     kpis=[
-        ("📈","VALORES DOS EAs",f"R$ {valor_eas:.2f} MM".replace(".",","),"Valor consolidado dos estoques","▲ 3,1% vs mês anterior","#18b84b"),
+        ("📈", "VALORES DOS EAs", *estoque_eas),
         ("📊","SEPARAÇÃO E FATURAMENTO",f"{volume_separacao:,.0f}".replace(",","."),"Volume de pedidos processados","▲ 6,8% vs mês anterior","#18b84b"),
         ("💲","CUSTO LOGÍSTICO",f"R$ {perfil['custo']:.2f} MM".replace(".",","),"Acumulado no mês","▼ 4,2% vs mês anterior","#e53935"),
         ("💰","RESULTADO DO DRE",f"R$ {perfil['dre']:.2f} MM".replace(".",","),"Resultado operacional","▲ 5,8% vs mês anterior","#18b84b"),
     ]
-    st.markdown(f'<div class="demo-strip">DADOS DEMONSTRATIVOS • {html.escape(contexto)}</div>',unsafe_allow_html=True)
+    st.markdown(f'<div class="demo-strip">DEMAIS INDICADORES DEMONSTRATIVOS • {html.escape(contexto)}</div>',unsafe_allow_html=True)
     for col,item in zip(st.columns(4,gap="small"),kpis):
         with col:
             icone,titulo,valor,unidade,variacao,cor=item
