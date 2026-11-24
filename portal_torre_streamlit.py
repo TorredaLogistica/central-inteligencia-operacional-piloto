@@ -398,7 +398,7 @@ def obter_metadados_fonte(nome, repositorio, branch, arquivo, token_marcador="")
 
 
 @st.cache_data(ttl=1800, show_spinner=False)
-def carregar_base_github(nome, repositorio, branch, arquivo, formato, token_marcador=""):
+def carregar_base_github(nome, repositorio, branch, arquivo, formato, token_marcador="", guia=0):
     meta = obter_metadados_fonte(nome, repositorio, branch, arquivo, token_marcador)
     download_url = meta.get("Download")
     if not download_url:
@@ -410,7 +410,7 @@ def carregar_base_github(nome, repositorio, branch, arquivo, formato, token_marc
     if formato == "parquet":
         return pd.read_parquet(conteudo)
     if formato == "xlsx":
-        return pd.read_excel(conteudo, engine="openpyxl")
+        return pd.read_excel(conteudo, sheet_name=guia, engine="openpyxl")
     if formato == "xlsb":
         return pd.read_excel(conteudo, engine="calamine")
     raise ValueError(f"Formato remoto não suportado: {formato}")
@@ -518,6 +518,52 @@ def _card_valores_eas(cd, empresa):
     seta = "▲ " if delta > 0 else "▼ " if delta < 0 else ""
     comparativo = f"{seta}{delta:+.1f}% vs mês anterior".replace(".", ",")
     return valor, detalhe, comparativo, "#20c66b" if delta > 0 else "#ff757d" if delta < 0 else "#c9bdc0"
+
+
+def _calcular_fatura_total(df, cd, empresa):
+    # Mesma regra da Fatura total em App_Faturas.py: soma de Custo no recorte.
+    obrigatorias = {"MÊS/ANO", "Custo", "Unidade", "Empresa"}
+    if not obrigatorias.issubset(df.columns):
+        raise ValueError("Colunas da guia Fatura não localizadas")
+    datas = pd.to_datetime(df["MÊS/ANO"], errors="coerce")
+    referencia = datas.max()
+    if pd.isna(referencia):
+        raise ValueError("Competência da fatura não identificada")
+    mascara = datas.notna()
+    if cd != "Consolidado":
+        mascara &= df["Unidade"].map(_chave_eas).eq(_chave_eas(cd))
+    if empresa != "Consolidado":
+        mascara &= df["Empresa"].map(_chave_eas).eq(_chave_eas(empresa))
+    atual = mascara & datas.eq(referencia)
+    if not atual.any():
+        return None, referencia, None
+    custos = pd.to_numeric(df["Custo"], errors="coerce").fillna(0)
+    total = float(custos[atual].sum())
+    anterior = float(custos[mascara & datas.eq(referencia - pd.DateOffset(months=1))].sum())
+    variacao = (total / anterior - 1) * 100 if anterior else None
+    return total, referencia, variacao
+
+
+def _card_fatura_total(cd, empresa):
+    fonte = FONTES_REMOTAS["Faturas dos OPLs"]
+    neutro = "#c9bdc0"
+    try:
+        df = carregar_base_github(
+            "Faturas dos OPLs", fonte["repositorio"], fonte["branch"], fonte["arquivo"],
+            fonte["formato"], "configurado" if _github_token() else "publico", guia="Fatura",
+        )
+        total, referencia, variacao = _calcular_fatura_total(df, cd, empresa)
+    except Exception:
+        return "—", "Fonte de faturas indisponível", "Consulte Fontes de dados", neutro
+    if total is None:
+        return "—", f"Sem faturas no recorte • {referencia:%m/%Y}", "Sem comparativo mensal", neutro
+    valor = f"R$ {total / 1_000_000:,.2f} MM".replace(",", "_").replace(".", ",").replace("_", ".")
+    detalhe = f"Fatura total • {referencia:%m/%Y}"
+    if variacao is None:
+        return valor, detalhe, "Sem comparativo mensal", neutro
+    seta = "▲ " if variacao > 0 else "▼ " if variacao < 0 else ""
+    texto = f"{seta}{variacao:+.1f}% vs mês anterior".replace(".", ",")
+    return valor, detalhe, texto, "#ff757d" if variacao > 0 else "#20c66b" if variacao < 0 else neutro
 
 
 def diagnosticar_base(df):
@@ -648,11 +694,12 @@ def exibir_visao_geral():
 
     # Cards executivos demonstrativos. Os valores serão substituídos pelas bases oficiais.
     estoque_eas = _card_valores_eas(cd_selecionado, empresa_selecionada)
+    fatura_total = _card_fatura_total(cd_selecionado, empresa_selecionada)
     volume_separacao = max(1, round(15709 * perfil["fator"]))
     kpis=[
         ("📈", "VALORES DOS EAs", *estoque_eas),
         ("📊","SEPARAÇÃO E FATURAMENTO",f"{volume_separacao:,.0f}".replace(",","."),"Volume de pedidos processados","▲ 6,8% vs mês anterior","#18b84b"),
-        ("💲","CUSTO LOGÍSTICO",f"R$ {perfil['custo']:.2f} MM".replace(".",","),"Acumulado no mês","▼ 4,2% vs mês anterior","#e53935"),
+        ("💲", "CUSTO LOGÍSTICO", *fatura_total),
         ("💰","RESULTADO DO DRE",f"R$ {perfil['dre']:.2f} MM".replace(".",","),"Resultado operacional","▲ 5,8% vs mês anterior","#18b84b"),
     ]
     st.markdown(f'<div class="demo-strip">DEMAIS INDICADORES DEMONSTRATIVOS • {html.escape(contexto)}</div>',unsafe_allow_html=True)
