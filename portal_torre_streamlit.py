@@ -566,6 +566,127 @@ def _card_fatura_total(cd, empresa):
     return valor, detalhe, texto, "#ff757d" if variacao > 0 else "#20c66b" if variacao < 0 else neutro
 
 
+METAS_SF = {
+    'claro movel': {'01/2025': 97.94, '02/2025': 98.17, '03/2025': 98.22, '04/2025': 97.46, '05/2025': 98.39, '06/2025': 98.21, '07/2025': 99.05, '08/2025': 98.75, '09/2025': 98.73, '10/2025': 99.46, '11/2025': 96.98, '12/2025': 98.28, '01/2026': 99.5, '02/2026': 99.5, '03/2026': 99.5, '04/2026': 99.5, '05/2026': 99.5, '06/2026': 99.5, '07/2026': 99.5, '08/2026': 99.5, '09/2026': 99.5, '10/2026': 99.5, '11/2026': 99.5, '12/2026': 99.5},
+    'claro tv': {'01/2025': 26.91, '02/2025': 31.21, '03/2025': 58.02, '04/2025': 38.19, '05/2025': 54.97, '06/2025': 78.13, '07/2025': 82.01, '08/2025': 73.1, '09/2025': 66.67, '10/2025': 64.25, '11/2025': 63.69, '12/2025': 48.48, '01/2026': 85.02, '02/2026': 85.11, '03/2026': 85.19, '04/2026': 85.04, '05/2026': 84.8, '06/2026': 84.9, '07/2026': 85.19, '08/2026': 84.77, '09/2026': 84.97, '10/2026': 84.97, '11/2026': 85.05, '12/2026': 84.97},
+    'embratel': {'01/2025': 43.25, '02/2025': 40.31, '03/2025': 51.7, '04/2025': 27.42, '05/2025': 65.94, '06/2025': 73.6, '07/2025': 55.06, '08/2025': 69.74, '09/2025': 82.46, '10/2025': 64.27, '11/2025': 41.33, '12/2025': 67.61, '01/2026': 80.0, '02/2026': 80.0, '03/2026': 80.01, '04/2026': 80.02, '05/2026': 80.01, '06/2026': 79.99, '07/2026': 79.99, '08/2026': 82.0, '09/2026': 81.98, '10/2026': 82.01, '11/2026': 82.0, '12/2026': 82.0},
+    'net': {'01/2025': 54.98, '02/2025': 47.34, '03/2025': 55.8, '04/2025': 36.5, '05/2025': 57.16, '06/2025': 73.98, '07/2025': 67.22, '08/2025': 76.42, '09/2025': 85.52, '10/2025': 75.33, '11/2025': 65.79, '12/2025': 70.59, '01/2026': 90.0, '02/2026': 90.0, '03/2026': 90.0, '04/2026': 90.0, '05/2026': 90.0, '06/2026': 90.0, '07/2026': 90.0, '08/2026': 92.0, '09/2026': 92.0, '10/2026': 92.0, '11/2026': 92.0, '12/2026': 92.0},
+    'consolidado': {'01/2025': 76.09, '02/2025': 74.38, '03/2025': 79.52, '04/2025': 72.28, '05/2025': 81.73, '06/2025': 88.07, '07/2025': 82.91, '08/2025': 89.19, '09/2025': 92.77, '10/2025': 88.68, '11/2025': 82.47, '12/2025': 85.94, '01/2026': 94.45, '02/2026': 94.65, '03/2026': 94.63, '04/2026': 94.93, '05/2026': 94.31, '06/2026': 94.21, '07/2026': 94.36, '08/2026': 95.8, '09/2026': 95.36, '10/2026': 95.47, '11/2026': 95.56, '12/2026': 95.47},
+}
+
+
+def _meta_sf(mes, empresa):
+    # Mesma meta mensal do dashboard, inclusive o padrão para Claro Fixo.
+    return METAS_SF.get(_chave_eas(empresa), METAS_SF['consolidado']).get(mes.strftime('%m/%Y'), 85.0)
+
+
+def _preparar_sf(df):
+    df = df.rename(columns=lambda c: str(c).strip())
+    pedido = 'Pedido' if 'Pedido' in df.columns else 'Pedidos'
+    if not {'Data NF', 'CD Origem', 'Empresa', pedido}.issubset(df.columns):
+        raise ValueError('Colunas obrigatórias de Separação e Faturamento não encontradas')
+    data = df['Data NF']
+    if pd.api.types.is_numeric_dtype(data):
+        data = pd.to_datetime(data, unit='D', origin='1899-12-30', errors='coerce')
+    else:
+        data = pd.to_datetime(data, errors='coerce', dayfirst=True, format='mixed')
+    validas = data.notna()
+    if not validas.any():
+        raise ValueError('Sem Data NF válida')
+    dia = data[validas].dt.normalize()
+    mes = dia.max().to_period('M')
+    ultimos = dia.index[dia.dt.to_period('M').isin([mes, mes - 1])]
+    df = df.loc[ultimos]
+    dia = dia.loc[ultimos]
+    grupos = pd.DataFrame({'dia': dia})
+    for destino, origem in [('cd', 'CD Origem'), ('empresa', 'Empresa')]:
+        valores = df[origem].fillna('').astype(str)
+        mapa = {v: _chave_eas(v) for v in valores.unique()}
+        grupos[destino] = valores.map(mapa).replace({'nao informado': '', 'undefined': '', 'nan': '', 'none': '', 'na': ''})
+    flags = [f'flag_d{i}' for i in range(3)]
+    if set(flags).issubset(df.columns):
+        for i, flag in enumerate(flags):
+            grupos[f'd{i}'] = df[flag].astype('string').str.strip().str.lower().isin(['1', '1.0', 'true'])
+    else:
+        if 'aging_num' in df:
+            aging = pd.to_numeric(df['aging_num'], errors='coerce')
+        else:
+            aging = pd.to_numeric(df['Aging_Ajustado_D+'].astype(str).str.extract(r'D\+(\d+)', expand=False), errors='coerce')
+        for i in range(3):
+            grupos[f'd{i}'] = aging.eq(i).fillna(False)
+    if (grupos[['d0', 'd1', 'd2']].sum(axis=1) > 1).any():
+        raise ValueError('Faixas de SLA sobrepostas')
+    # Cards: len(base). Gráfico/rankings: Pedido.count(), como no dashboard.
+    grupos['total'] = 1
+    grupos['pedidos'] = df[pedido].notna().astype('int8') if set(flags).issubset(df.columns) else 1
+    return grupos.groupby(['dia', 'cd', 'empresa'], as_index=False, sort=False)[['total', 'pedidos', 'd0', 'd1', 'd2']].sum()
+
+
+@st.cache_data(ttl=1800, max_entries=2, show_spinner=False)
+def _carregar_sf(repositorio, branch, arquivo, marcador):
+    # Usa o Parquet do dashboard e guarda em cache apenas o resumo diário.
+    meta = obter_metadados_fonte('Separação e Faturamento', repositorio, branch, arquivo, marcador)
+    url = meta.get('Download')
+    if not url:
+        raise ValueError('Arquivo sem URL de download')
+    resposta = requests.get(url, headers=_github_headers(), timeout=(5, 30))
+    resposta.raise_for_status()
+    return _preparar_sf(pd.read_parquet(io.BytesIO(resposta.content)))
+
+
+def _resumo_sf(base, cd, empresa):
+    mes = base['dia'].max().to_period('M')
+    recorte = base
+    for campo, selecao in [('cd', cd), ('empresa', empresa)]:
+        if selecao != 'Consolidado':
+            recorte = recorte[recorte[campo].eq(_chave_eas(selecao))]
+    periodo = recorte['dia'].dt.to_period('M')
+    atual = recorte[periodo.eq(mes)]
+    total = int(atual['total'].sum())
+    anterior = int(recorte.loc[periodo.eq(mes - 1), 'total'].sum())
+    faixas = atual[['d0', 'd1', 'd2']].sum().cumsum()
+    sla = [float(x / total * 100) if total else None for x in faixas]
+    meta = _meta_sf(mes, empresa)
+    diario = atual.groupby('dia')[['pedidos', 'd0', 'd1', 'd2']].sum().reset_index()
+    diario = diario[diario['pedidos'].gt(0)].copy()
+    for i in range(3):
+        diario[f'Até D+{i}'] = (diario[[f'd{j}' for j in range(i + 1)]].sum(axis=1) / diario['pedidos'] * 100).round(2)
+    diario['Período'] = diario['dia'].dt.strftime('%d/%m')
+    diario['Meta'] = meta
+    ranking = {}
+    for campo in ('cd', 'empresa'):
+        grupos = atual[atual[campo].ne('')].groupby(campo)[['pedidos', 'd0', 'd1']].sum()
+        grupos = grupos[grupos['pedidos'].gt(0)].copy()
+        grupos['sla'] = ((grupos['d0'] + grupos['d1']) / grupos['pedidos'] * 100).round(2)
+        ranking[campo] = grupos.sort_values(['sla', 'pedidos'], ascending=[False, False], kind='stable')
+    return mes, total, anterior, sla, meta, diario, ranking
+
+
+def _percentual_sf(valor):
+    return '—' if valor is None else f'{valor:.2f}%'.replace('.', ',')
+
+
+def _destaques_sf(rankings, nomes_cd, nomes_empresa, erro):
+    cards = []
+    for campo, melhor, atencao, nomes in [
+        ('cd', '🏆 MELHOR CD', '⚠️ CD EM ATENÇÃO', nomes_cd),
+        ('empresa', '🏆 MELHOR EMPRESA', '⚠️ EMPRESA EM ATENÇÃO', nomes_empresa),
+    ]:
+        rank = rankings.get(campo)
+        motivo = erro or ('Sem dados no recorte' if rank is None or rank.empty else 'Sem comparação no recorte')
+        if rank is None or len(rank) < 2:
+            cards.extend([(melhor, '—', motivo, ''), (atencao, '—', motivo, '')])
+            continue
+        if rank.iloc[0]['sla'] == rank.iloc[-1]['sla']:
+            cards.extend([(melhor, '—', 'Empate no SLA D+1', ''), (atencao, '—', 'Empate no SLA D+1', '')])
+            continue
+        for titulo, linha, classe in [(melhor, rank.iloc[0], 'good'), (atencao, rank.iloc[-1], 'bad')]:
+            nome = nomes.get(linha.name, linha.name.title())
+            qtd = f"{int(linha['pedidos']):,}".replace(',', '.')
+            cards.append((titulo, nome, f"SLA D+1 {_percentual_sf(linha['sla'])} • {qtd} pedidos", classe))
+    return cards
+
+
 def diagnosticar_base(df):
     datas_candidatas = []
     palavras_data = ("data", "dt ", "date", "emissão", "emissao", "criação", "criacao")
@@ -684,25 +805,40 @@ def exibir_visao_geral():
     contexto_cd="Todos os CDs" if cd_selecionado=="Consolidado" else cd_selecionado
     contexto_empresa="Todas as empresas" if empresa_selecionada=="Consolidado" else empresa_selecionada
     contexto=f"{contexto_cd} • {contexto_empresa}"
-    # KPIs demonstrativos de Separação e Faturamento; serão substituídos pelas regras oficiais da base.
+    # Estes ajustes continuam exclusivos da simulação dos OPLs.
     ajuste_sla = 0 if cd_selecionado == "Consolidado" else (perfil["sla"] - 96.8) * 0.45
     ajuste_empresa = (empresas[empresa_selecionada]["score"] - 91.8) * 0.12 if empresa_selecionada != "Consolidado" else 0
-    sla_d0 = max(0, min(100, 57.15 + ajuste_sla + ajuste_empresa))
-    sla_d1 = max(0, min(100, 94.91 + ajuste_sla + ajuste_empresa))
-    sla_d2 = max(0, min(100, 99.60 + (ajuste_sla + ajuste_empresa) * 0.20))
-    total_pedidos = max(1, round(15709 * perfil["fator"]))
-
-    # Cards executivos demonstrativos. Os valores serão substituídos pelas bases oficiais.
+    erro_sf = ""
+    mes_sf, total_pedidos, anterior_sf = None, 0, 0
+    sla_d0 = sla_d1 = sla_d2 = meta_sf = None
+    diario_sf, rankings_sf = pd.DataFrame(), {}
+    try:
+        fonte_sf = FONTES_REMOTAS["Separação e Faturamento"]
+        base_sf = _carregar_sf(fonte_sf["repositorio"], fonte_sf["branch"], fonte_sf["arquivo"],
+                              "configurado" if _github_token() else "publico")
+        mes_sf, total_pedidos, anterior_sf, slas_sf, meta_sf, diario_sf, rankings_sf = _resumo_sf(
+            base_sf, cd_selecionado, empresa_selecionada)
+        sla_d0, sla_d1, sla_d2 = slas_sf
+    except Exception:
+        erro_sf = "Base de Separação e Faturamento indisponível"
+    referencia_sf = mes_sf.strftime("%m/%Y") if mes_sf is not None else ""
+    volume_sf = f"{total_pedidos:,}".replace(",", ".") if total_pedidos else "—"
+    detalhe_sf = erro_sf or (f"Pedidos processados • {referencia_sf}" if total_pedidos else f"Sem pedidos no recorte • {referencia_sf}")
+    variacao_sf, cor_sf = "Sem comparativo mensal", "#c9bdc0"
+    if total_pedidos and anterior_sf:
+        delta_sf = (total_pedidos / anterior_sf - 1) * 100
+        seta_sf = "▲ " if delta_sf > 0 else "▼ " if delta_sf < 0 else ""
+        variacao_sf = f"{seta_sf}{delta_sf:+.1f}% vs mês anterior".replace(".", ",")
+        cor_sf = "#20c66b" if delta_sf > 0 else "#ff757d" if delta_sf < 0 else cor_sf
     estoque_eas = _card_valores_eas(cd_selecionado, empresa_selecionada)
     fatura_total = _card_fatura_total(cd_selecionado, empresa_selecionada)
-    volume_separacao = max(1, round(15709 * perfil["fator"]))
     kpis=[
         ("📈", "VALORES DOS EAs", *estoque_eas),
-        ("📊","SEPARAÇÃO E FATURAMENTO",f"{volume_separacao:,.0f}".replace(",","."),"Volume de pedidos processados","▲ 6,8% vs mês anterior","#18b84b"),
+        ("📊", "SEPARAÇÃO E FATURAMENTO", volume_sf, detalhe_sf, variacao_sf, cor_sf),
         ("💲", "CUSTO LOGÍSTICO", *fatura_total),
         ("💰","RESULTADO DO DRE",f"R$ {perfil['dre']:.2f} MM".replace(".",","),"Resultado operacional","▲ 5,8% vs mês anterior","#18b84b"),
     ]
-    st.markdown(f'<div class="demo-strip">DEMAIS INDICADORES DEMONSTRATIVOS • {html.escape(contexto)}</div>',unsafe_allow_html=True)
+    st.markdown(f'<div class="demo-strip">DADOS DA BASE: EAs, FATURAS E SEPARAÇÃO E FATURAMENTO • DEMAIS INDICADORES DEMONSTRATIVOS • {html.escape(contexto)}</div>',unsafe_allow_html=True)
     for col,item in zip(st.columns(4,gap="small"),kpis):
         with col:
             icone,titulo,valor,unidade,variacao,cor=item
@@ -722,32 +858,25 @@ def exibir_visao_geral():
     cds["Faixa ocupação"] = cds["Ocupação"].apply(lambda v: "Crítica" if v > 90 else ("Adequada" if v >= 75 else "Baixa"))
     cds=cds.sort_values("Score",ascending=False).reset_index(drop=True)
     cds["Rank"]=range(1,len(cds)+1)
-    empresas_df=pd.DataFrame({"Empresa":["Claro Móvel","Claro TV","Embratel","NET","Claro Fixo"],"Score":[94.6,90.1,92.7,87.9,89.4]})
-    melhor_cd=cds.iloc[0]; pior_cd=cds.iloc[-1]
-    melhor_empresa=empresas_df.loc[empresas_df["Score"].idxmax()]; pior_empresa=empresas_df.loc[empresas_df["Score"].idxmin()]
 
-    d1,d2,d3,d4=st.columns(4,gap="small")
-    decisoes=[
-        (d1,"🏆 MELHOR CD",melhor_cd["CD"],f"Score {melhor_cd['Score']:.1f} • SLA {melhor_cd['SLA']:.1f}%","good"),
-        (d2,"⚠️ CD EM ATENÇÃO",pior_cd["CD"],f"Score {pior_cd['Score']:.1f} • Reversa {pior_cd['Reversa']:.2f}%","bad"),
-        (d3,"🏆 MELHOR EMPRESA",melhor_empresa["Empresa"],f"Score {melhor_empresa['Score']:.1f}","good"),
-        (d4,"⚠️ EMPRESA EM ATENÇÃO",pior_empresa["Empresa"],f"Score {pior_empresa['Score']:.1f}","bad"),
-    ]
-    for col,titulo,nome,detalhe,classe in decisoes:
+    nomes_cd_sf = {_chave_eas(nome): nome for nome in perfis_cd if nome != "Consolidado"}
+    nomes_empresa_sf = {_chave_eas(nome): nome for nome in empresas if nome != "Consolidado"}
+    decisoes = _destaques_sf(rankings_sf, nomes_cd_sf, nomes_empresa_sf, erro_sf)
+    for col, (titulo, nome, detalhe, classe) in zip(st.columns(4, gap="small"), decisoes):
         with col:
-            st.markdown(f'<div class="decision-card {classe}"><span>{titulo}</span><strong>{html.escape(str(nome))}</strong><small>{html.escape(str(detalhe))}</small></div>',unsafe_allow_html=True)
+            st.markdown(f'<div class="decision-card {classe}"><span>{titulo}</span><strong>{html.escape(nome)}</strong><small>{html.escape(detalhe)}</small></div>', unsafe_allow_html=True)
 
     sla_items = [
-        ("SLA ATÉ D+0", f"{sla_d0:.2f}%".replace(".", ","), "Separado e faturado no mesmo dia", "d0"),
-        ("SLA ATÉ D+1", f"{sla_d1:.2f}%".replace(".", ","), "Meta operacional: 95,56%", "d1"),
-        ("SLA ATÉ D+2", f"{sla_d2:.2f}%".replace(".", ","), "Pedidos concluídos em até dois dias", "d2"),
-        ("TOTAL DE PEDIDOS", f"{total_pedidos:,.0f}".replace(",", "."), "Volume do filtro selecionado", "total"),
+        ("SLA ATÉ D+0", _percentual_sf(sla_d0), "Separado e faturado no mesmo dia", "d0"),
+        ("SLA ATÉ D+1", _percentual_sf(sla_d1), f"Meta operacional: {_percentual_sf(meta_sf)}", "d1"),
+        ("SLA ATÉ D+2", _percentual_sf(sla_d2), "Pedidos concluídos em até dois dias", "d2"),
+        ("TOTAL DE PEDIDOS", volume_sf, detalhe_sf, "total"),
     ]
     sla_html = "".join(
         f'<div class="sla-mini {classe}"><span>{titulo}</span><strong>{valor}</strong><small>{descricao}</small></div>'
         for titulo, valor, descricao, classe in sla_items
     )
-    st.markdown(f'<div class="sla-summary"><div class="sla-summary-head"><span>📊 SEPARAÇÃO E FATURAMENTO</span><small>{html.escape(contexto)}</small></div><div class="sla-summary-grid">{sla_html}</div></div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="sla-summary"><div class="sla-summary-head"><span>📊 SEPARAÇÃO E FATURAMENTO</span><small>{html.escape(contexto)} {html.escape(referencia_sf)}</small></div><div class="sla-summary-grid">{sla_html}</div></div>', unsafe_allow_html=True)
 
     # Resumo demonstrativo do indicador Nível de Serviço dos OPLs.
     pedidos_opl = max(1, round(14262 * perfil["fator"]))
@@ -800,7 +929,7 @@ def exibir_visao_geral():
 
 
     alertas_base=[("🔴","SLA abaixo da meta","SLA inferior à meta operacional","Há 2h"),("🟠","Ocupação crítica","CD acima de 90% de ocupação","Há 3h"),("🟠","Pendências de faturamento","Valores aguardando tratamento","Há 4h"),("🔴","Atraso em pedidos Canal Vermelho","Pedidos críticos em atraso","Há 5h")]
-    st.markdown(f'<div class="cio-panel-title">DESEMPENHO COMPARATIVO DOS CDs</div><div class="cio-panel-sub">Score de 0 a 100: combina SLA e ocupação. Quanto mais próximo da meta, melhor.</div>',unsafe_allow_html=True)
+    st.markdown(f'<div class="cio-panel-title">DESEMPENHO COMPARATIVO DOS CDs • DEMONSTRATIVO</div><div class="cio-panel-sub">Score de 0 a 100: combina SLA e ocupação. Quanto mais próximo da meta, melhor.</div>',unsafe_allow_html=True)
     perf=cds.sort_values("Score")
     ordem_perf=perf.sort_values("Score",ascending=False)["CD"].tolist()
     perf_plot=perf.copy()
@@ -869,23 +998,19 @@ def exibir_visao_geral():
 
     # Resumo do indicador Separação e Faturamento no padrão dos dashboards originais.
     datas=["01/11","02/11","03/11","04/11","05/11","06/11","08/11","09/11","10/11","11/11","12/11","13/11","14/11","15/11"]
-    evolucao=pd.DataFrame({
-        "Período":datas,
-        "Até D+0":[0,100,76.4,66.3,66.3,28.4,0,74.8,46.6,33.9,67.6,43.1,0,100],
-        "Até D+1":[100,100,99.6,98.7,93.1,87.0,100,96.1,96.7,95.2,93.7,93.9,0,100],
-        "Até D+2":[100,100,99.6,99.7,99.7,97.9,100,99.8,99.5,99.9,99.3,99.8,100,100],
-        "Meta":[95.56]*14,
-    }).melt("Período",var_name="Indicador",value_name="SLA")
-
-    st.markdown('<div class="cio-panel-title">EVOLUÇÃO DO SLA • D+0, D+1 E D+2</div><div class="cio-panel-sub">Acompanhamento diário com referência da meta de 95,56%</div>',unsafe_allow_html=True)
-    chart_evo=alt.Chart(evolucao).mark_line(point=True,strokeWidth=2.4).encode(
-        x=alt.X("Período:N",sort=datas,axis=alt.Axis(labelColor="#cbd5df",title=None)),
-        y=alt.Y("SLA:Q",scale=alt.Scale(domain=[0,100]),axis=alt.Axis(labelColor="#cbd5df",gridColor="#362329",title="Percentual (%)",titleColor="#cbd5df")),
-        color=alt.Color("Indicador:N",scale=alt.Scale(domain=["Até D+0","Até D+1","Até D+2","Meta"],range=["#1479df","#138a2e","#ff3038","#9b9b9b"]),legend=alt.Legend(labelColor="#fff",title=None,orient="right")),
-        strokeDash=alt.StrokeDash("Indicador:N",scale=alt.Scale(domain=["Até D+0","Até D+1","Até D+2","Meta"],range=[[1,0],[1,0],[1,0],[7,5]]),legend=None),
-        tooltip=["Período","Indicador",alt.Tooltip("SLA:Q",format=".1f")]
-    ).properties(height=320).configure_view(stroke=None).configure(background="#100c0f")
-    st.altair_chart(chart_evo,use_container_width=True)
+    st.markdown(f'<div class="cio-panel-title">EVOLUÇÃO DO SLA • D+0, D+1 E D+2</div><div class="cio-panel-sub">Separação e Faturamento • Data NF • {html.escape(referencia_sf)} • Meta D+1: {_percentual_sf(meta_sf)}</div>', unsafe_allow_html=True)
+    if diario_sf.empty:
+        st.info(erro_sf or "Sem dados diários para o recorte selecionado.")
+    else:
+        evolucao = diario_sf.melt("Período", value_vars=["Até D+0", "Até D+1", "Até D+2", "Meta"], var_name="Indicador", value_name="SLA")
+        chart_evo=alt.Chart(evolucao).mark_line(point=True,strokeWidth=2.4).encode(
+            x=alt.X("Período:N",sort=diario_sf["Período"].tolist(),axis=alt.Axis(labelColor="#cbd5df",title=None)),
+            y=alt.Y("SLA:Q",scale=alt.Scale(domain=[0,100]),axis=alt.Axis(labelColor="#cbd5df",gridColor="#362329",title="Percentual (%)",titleColor="#cbd5df")),
+            color=alt.Color("Indicador:N",scale=alt.Scale(domain=["Até D+0","Até D+1","Até D+2","Meta"],range=["#1479df","#138a2e","#ff3038","#9b9b9b"]),legend=alt.Legend(labelColor="#fff",title=None,orient="right")),
+            strokeDash=alt.StrokeDash("Indicador:N",scale=alt.Scale(domain=["Até D+0","Até D+1","Até D+2","Meta"],range=[[1,0],[1,0],[1,0],[7,5]]),legend=None),
+            tooltip=["Período","Indicador",alt.Tooltip("SLA:Q",format=".1f")]
+        ).properties(height=320).configure_view(stroke=None).configure(background="#100c0f")
+        st.altair_chart(chart_evo,use_container_width=True)
 
     opl_evolucao=pd.DataFrame({
         "Período":datas,
@@ -906,7 +1031,7 @@ def exibir_visao_geral():
     st.markdown('<div class="cio-panel-title">RESUMO EXECUTIVO</div><div class="cio-panel-sub">Principais mensagens para decisão no filtro selecionado</div>',unsafe_allow_html=True)
     resumo_cards=[
         ("Operação",f"SLA operacional em {perfil['sla']:.1f}%","Acima da referência demonstrativa" if perfil["sla"]>=95 else "Abaixo da referência demonstrativa","good" if perfil["sla"]>=95 else "bad"),
-        ("Separação e Faturamento",f"D+1 em {sla_d1:.2f}%",f"{total_pedidos:,.0f} pedidos no filtro".replace(",","."),"good" if sla_d1>=95.56 else "bad"),
+        ("Separação e Faturamento", f"D+1 em {_percentual_sf(sla_d1)}" if sla_d1 is not None else "Sem resultado disponível", detalhe_sf, ("good" if sla_d1 >= meta_sf else "bad") if sla_d1 is not None else ""),
         ("Nível de Serviço OPLs",f"D+2 em {sla_opl_d2:.1f}%",f"Gap para D+4 de {gap_opl:.1f} p.p.","good" if sla_opl_d2>=95 else "bad"),
         ("Canal Vermelho","7,09% dos pedidos","Mês anterior: 3,65% • aumento de 3,44 p.p.","bad"),
         ("Capacidade",f"{int((cds['Ocupação']>90).sum())} CD(s) acima de 90%",f"Maior ocupação: {cds.loc[cds['Ocupação'].idxmax(),'CD']}","bad" if (cds["Ocupação"]>90).any() else "good"),
