@@ -613,19 +613,25 @@ def _itens_cards_faturas(resumo):
 def _exibir_cards_faturas(resumo, contexto, erro):
     referencia = resumo.get("referencia")
     detalhe = f"{referencia.strftime('%m/%Y')} • {contexto}" if referencia is not None else contexto
-    st.markdown(f'<div class="cio-panel-title">FATURAS DOS OPLs</div>'
-                f'<div class="cio-panel-sub">{html.escape(detalhe)}</div>', unsafe_allow_html=True)
+    cabecalho = (
+        '<div class="sla-summary-head"><span>💵 FATURAS DOS OPLs</span>'
+        f'<small>{html.escape(detalhe)}</small></div>'
+    )
     if erro or "total" not in resumo:
+        st.markdown(f'<div class="sla-summary cio-fatura-summary">{cabecalho}</div>', unsafe_allow_html=True)
         st.info(erro or "Sem faturas na competência de referência para os filtros selecionados.")
         return
     cards = "".join(
-        f'<article class="cio-fatura-card" style="--fatura-acento:{cor}">'
-        f'<div class="cio-fatura-titulo">{html.escape(titulo)}</div>'
-        f'<div class="cio-fatura-valor">{html.escape(valor)}</div>'
-        f'<div class="cio-fatura-detalhe">{html.escape(subtitulo)}</div></article>'
+        f'<div class="sla-mini" style="--fatura-acento:{cor}">'
+        f'<span>{html.escape(titulo)}</span><strong>{html.escape(valor)}</strong>'
+        f'<small>{html.escape(subtitulo)}</small></div>'
         for titulo, valor, subtitulo, cor in _itens_cards_faturas(resumo)
     )
-    st.markdown(f'<div class="cio-fatura-grid">{cards}</div>', unsafe_allow_html=True)
+    st.markdown(
+        f'<div class="sla-summary cio-fatura-summary">{cabecalho}'
+        f'<div class="sla-summary-grid">{cards}</div></div>',
+        unsafe_allow_html=True,
+    )
 
 
 METAS_SF = {
@@ -2536,14 +2542,23 @@ body:has(.cio-title) .cio-kpi-value{font-size:1.62rem}
 div[data-testid="stSegmentedControl"]:has(+ div), [data-testid="stSegmentedControl"]{position:sticky;top:0;z-index:50;background:#fff;padding:7px 9px;border:1px solid #d9dee5;border-radius:10px;box-shadow:0 4px 12px rgba(31,41,55,.08);margin:8px 0 15px}
 [data-testid="stSegmentedControl"] button,[data-testid="stSegmentedControl"] label{min-height:34px!important;font-weight:750!important}
 
-/* Cards de faturas: grade do indicador de referência, isolada da Central. */
-.cio-fatura-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin:12px 0 20px}
-.cio-fatura-card{min-width:0;box-sizing:border-box;min-height:145px;background:#fff;border:1px solid #d5deeb;border-top:5px solid var(--fatura-acento);border-radius:16px;padding:19px 10px;text-align:center;display:grid;align-content:center;gap:12px;box-shadow:0 3px 12px rgba(0,0,0,.12)}
-.cio-fatura-titulo{font-size:.8rem;color:#414e60;font-weight:800;line-height:1.25}
-.cio-fatura-valor{font-size:clamp(1.05rem,2.1vw,2rem);line-height:1.16;color:#152239;font-weight:900;overflow-wrap:anywhere;font-variant-numeric:tabular-nums}
-.cio-fatura-detalhe{font-size:.8rem;color:#546176;line-height:1.25}
-@media(max-width:900px){.cio-fatura-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}}
-@media(max-width:540px){.cio-fatura-grid{grid-template-columns:minmax(0,1fr)}.cio-fatura-card{min-height:118px}}
+/* Faturas: mesmo painel escuro do Forecast, com grade propria. */
+.cio-fatura-summary .sla-summary-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+.cio-fatura-summary .sla-mini{min-width:0;text-align:left;border-right:1px solid #3d2429;border-bottom:1px solid #3d2429}
+.cio-fatura-summary .sla-mini:nth-child(3n){border-right:0}
+.cio-fatura-summary .sla-mini:nth-last-child(-n+3){border-bottom:0}
+.cio-fatura-summary .sla-mini:before{background:var(--fatura-acento,#ef3340)}
+.cio-fatura-summary .sla-mini strong{overflow-wrap:anywhere;font-variant-numeric:tabular-nums}
+@media(max-width:900px){
+ .cio-fatura-summary .sla-summary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .cio-fatura-summary .sla-mini:nth-child(n){border-right:1px solid #3d2429;border-bottom:1px solid #3d2429}
+ .cio-fatura-summary .sla-mini:nth-child(2n),.cio-fatura-summary .sla-mini:last-child{border-right:0}
+ .cio-fatura-summary .sla-mini:last-child{border-bottom:0;grid-column:1/-1}
+}
+@media(max-width:480px){
+ .cio-fatura-summary .sla-summary-grid{grid-template-columns:minmax(0,1fr)}
+ .cio-fatura-summary .sla-mini:nth-child(n){border-right:0}
+}
 </style>
 <div class="portal-head portal-head-base">
   <div class="portal-brand">
