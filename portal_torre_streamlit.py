@@ -778,6 +778,53 @@ def _resumo_executivo_canal_vermelho(resumo, erro):
     return "Canal Vermelho", texto, detalhe, "bad" if delta > 0 else "good" if delta < 0 else ""
 
 
+def _resumo_ocupacao_cds(df, cd, empresa):
+    df = df.rename(columns=lambda c: str(c).strip())
+    data, unidade, companhia = "MÊS_ANO_REFERÊNCIA", "Unidade", "Empresa"
+    ocup, cap = "Ocupação Total", "Capacidade Total"
+    if not {data, unidade, companhia, ocup, cap}.issubset(df.columns):
+        raise ValueError("Colunas obrigatórias de ocupação não encontradas")
+    datas = pd.to_datetime(df[data], errors="coerce")
+    referencia = datas.max()
+    if pd.isna(referencia):
+        raise ValueError("Competência de ocupação não identificada")
+    mascara = datas.dt.to_period("M").eq(referencia.to_period("M"))
+    if cd != "Consolidado":
+        mascara &= df[unidade].fillna("").map(_chave_eas).eq(_chave_eas(cd))
+    if empresa != "Consolidado":
+        mascara &= df[companhia].fillna("").map(_chave_eas).eq(_chave_eas(empresa))
+    recorte = df.loc[mascara, [unidade, ocup, cap]].dropna(subset=[unidade]).copy()
+    recorte["CD"] = recorte[unidade].astype(str).str.strip()
+    recorte = recorte[recorte["CD"].ne("")].copy()
+    for coluna in (ocup, cap):
+        recorte[coluna] = pd.to_numeric(recorte[coluna], errors="coerce").replace([float("inf"), -float("inf")], 0).fillna(0)
+    resumo = recorte.groupby("CD", as_index=False)[[ocup, cap]].sum()
+    resumo = resumo[resumo[cap].gt(0)].copy()
+    resumo["Ocupação"] = 100 * resumo[ocup] / resumo[cap]
+    resumo["Faixa ocupação"] = "Adequada"
+    resumo.loc[resumo["Ocupação"].lt(75), "Faixa ocupação"] = "Baixa"
+    resumo.loc[resumo["Ocupação"].gt(90), "Faixa ocupação"] = "Crítica"
+    resumo["Rótulo"] = resumo["Ocupação"].map(lambda v: f"{v:.2f}%".replace(".", ","))
+    return resumo, referencia
+
+
+def _ler_ocupacao_cds(cd, empresa):
+    nome = "Taxa de Ocupação dos CDs"
+    fonte = FONTES_REMOTAS[nome]
+    base = carregar_base_github(nome, fonte["repositorio"], fonte["branch"], fonte["arquivo"],
+                               fonte["formato"], "configurado" if _github_token() else "publico", guia="Ocupação")
+    return _resumo_ocupacao_cds(base, cd, empresa)
+
+
+def _resumo_executivo_ocupacao(ocupacao, referencia, erro):
+    if ocupacao.empty:
+        return "Capacidade", "Sem resultado disponível", erro or "Sem capacidade válida no recorte", ""
+    maior = ocupacao.loc[ocupacao["Ocupação"].idxmax()]
+    criticos = int(ocupacao["Ocupação"].gt(90).sum())
+    detalhe = f"Maior ocupação: {maior['CD']} ({maior['Rótulo']}) • {referencia.strftime('%m/%Y')}"
+    return "Capacidade", f"{criticos} CD(s) acima de 90%", detalhe, "bad" if criticos else "good"
+
+
 def diagnosticar_base(df):
     datas_candidatas = []
     palavras_data = ("data", "dt ", "date", "emissão", "emissao", "criação", "criacao")
@@ -929,7 +976,7 @@ def exibir_visao_geral():
         ("💲", "CUSTO LOGÍSTICO", *fatura_total),
         ("💰","RESULTADO DO DRE",f"R$ {perfil['dre']:.2f} MM".replace(".",","),"Resultado operacional","▲ 5,8% vs mês anterior","#18b84b"),
     ]
-    st.markdown(f'<div class="demo-strip">DADOS DA BASE: EAs, FATURAS, SEPARAÇÃO E FATURAMENTO E CANAL VERMELHO • DEMAIS INDICADORES DEMONSTRATIVOS • {html.escape(contexto)}</div>',unsafe_allow_html=True)
+    st.markdown(f'<div class="demo-strip">DADOS DA BASE: EAs, FATURAS, SEPARAÇÃO E FATURAMENTO, CANAL VERMELHO E OCUPAÇÃO DOS CDs • DEMAIS INDICADORES DEMONSTRATIVOS • {html.escape(contexto)}</div>',unsafe_allow_html=True)
     for col,item in zip(st.columns(4,gap="small"),kpis):
         with col:
             icone,titulo,valor,unidade,variacao,cor=item
@@ -1055,7 +1102,11 @@ def exibir_visao_geral():
         canal_pct = _tabela_grafico_canal_vermelho(resumo_cv)
     except Exception:
         erro_cv = "Base de Canal Vermelho indisponível. Consulte Fontes de dados."
-    ocupacao=cds.sort_values("Ocupação",ascending=False)
+    ocupacao, referencia_ocup, erro_ocup = pd.DataFrame(), None, ""
+    try:
+        ocupacao, referencia_ocup = _ler_ocupacao_cds(cd_selecionado, empresa_selecionada)
+    except Exception:
+        erro_ocup = "Base de ocupação indisponível. Consulte Fontes de dados."
     p1,p2=st.columns(2,gap="medium")
     with p1:
         st.markdown('<div class="cio-panel-title">PERCENTUAL MENSAL • CANAL VERMELHO</div><div class="cio-panel-sub">Pedidos com e sem Canal Vermelho</div>',unsafe_allow_html=True)
@@ -1090,17 +1141,30 @@ def exibir_visao_geral():
             canal_chart=(barras+sem_rotulos+com_rotulos).properties(height=270,width="container").configure_view(stroke=None).configure(background="#100c0f")
             st.altair_chart(canal_chart,use_container_width=True)
     with p2:
-        st.markdown('<div class="cio-panel-title">OCUPAÇÃO DOS CDs</div><div class="cio-panel-sub">Faixa recomendada: 75% a 90%</div>',unsafe_allow_html=True)
-        ocup_base=alt.Chart(ocupacao).encode(
-            x=alt.X("Ocupação:Q",scale=alt.Scale(domain=[0,100]),axis=alt.Axis(labelColor="#cbd5df",gridColor="#362329",title=None)),
-            y=alt.Y("CD:N",sort="-x",axis=alt.Axis(labelColor="#f2f4f7",title=None)),
-            color=alt.Color("Faixa ocupação:N",scale=alt.Scale(domain=["Adequada","Baixa","Crítica"],range=["#1dc267","#f5a623","#ef3340"]),legend=None),
-            tooltip=["CD","Ocupação","Faixa ocupação"]
-        )
-        ocup_barras=ocup_base.mark_bar(cornerRadiusEnd=5)
-        ocup_rotulos=ocup_base.transform_calculate(Rotulo="format(datum['Ocupação'], '.0f') + '%'").mark_text(align="right",dx=-8,color="white",fontSize=12,fontWeight="bold").encode(text="Rotulo:N")
-        ocup_chart=(ocup_barras+ocup_rotulos).properties(height=270).configure_view(stroke=None).configure(background="#100c0f")
-        st.altair_chart(ocup_chart,use_container_width=True)
+        st.markdown('<div class="cio-panel-title">OCUPAÇÃO DOS CDs</div><div class="cio-panel-sub">Faixa recomendada: 75% a 90%</div>', unsafe_allow_html=True)
+        if pd.notna(referencia_ocup):
+            st.caption(f"Competência: {referencia_ocup.strftime('%m/%Y')} • {contexto}")
+        if ocupacao.empty:
+            st.info(erro_ocup or "Sem capacidade válida para os filtros selecionados.")
+        else:
+            limite = max(105, float(ocupacao["Ocupação"].max()) * 1.07)
+            ocup_base = alt.Chart(ocupacao).encode(
+                x=alt.X("Ocupação:Q", scale=alt.Scale(domain=[0, limite], nice=False),
+                        axis=alt.Axis(labelColor="#cbd5df", gridColor="#362329", title=None, labelExpr="datum.label + '%'")),
+                y=alt.Y("CD:N", sort="ascending", axis=alt.Axis(labelColor="#f2f4f7", title=None, labelLimit=150)),
+                tooltip=["CD:N", alt.Tooltip("Rótulo:N", title="Taxa de ocupação"),
+                         "Ocupação Total:Q", "Capacidade Total:Q", "Faixa ocupação:N"],
+            )
+            ocup_barras = ocup_base.mark_bar(cornerRadiusEnd=5).encode(
+                color=alt.Color("Faixa ocupação:N", scale=alt.Scale(domain=["Adequada", "Baixa", "Crítica"],
+                                range=["#1dc267", "#f5a623", "#ef3340"]), legend=None),
+            )
+            ocup_rotulos = ocup_base.transform_filter("datum['Ocupação'] >= 18").mark_text(
+                align="right", dx=-8, color="#171015", fontSize=12, fontWeight="bold").encode(text="Rótulo:N")
+            ocup_rotulos_curtos = ocup_base.transform_filter("datum['Ocupação'] < 18").mark_text(
+                align="left", dx=5, color="#f2f4f7", fontSize=12, fontWeight="bold").encode(text="Rótulo:N")
+            ocup_chart = (ocup_barras + ocup_rotulos + ocup_rotulos_curtos).properties(height=max(90, 30 * len(ocupacao))).configure_view(stroke=None).configure(background="#100c0f")
+            st.altair_chart(ocup_chart, use_container_width=True)
 
     # Resumo do indicador Separação e Faturamento no padrão dos dashboards originais.
     datas=["01/11","02/11","03/11","04/11","05/11","06/11","08/11","09/11","10/11","11/11","12/11","13/11","14/11","15/11"]
@@ -1140,7 +1204,7 @@ def exibir_visao_geral():
         ("Separação e Faturamento", f"D+1 em {_percentual_sf(sla_d1)}" if sla_d1 is not None else "Sem resultado disponível", detalhe_sf, ("good" if sla_d1 >= meta_sf else "bad") if sla_d1 is not None else ""),
         ("Nível de Serviço OPLs",f"D+2 em {sla_opl_d2:.1f}%",f"Gap para D+4 de {gap_opl:.1f} p.p.","good" if sla_opl_d2>=95 else "bad"),
         _resumo_executivo_canal_vermelho(resumo_cv, erro_cv),
-        ("Capacidade",f"{int((cds['Ocupação']>90).sum())} CD(s) acima de 90%",f"Maior ocupação: {cds.loc[cds['Ocupação'].idxmax(),'CD']}","bad" if (cds["Ocupação"]>90).any() else "good"),
+        _resumo_executivo_ocupacao(ocupacao, referencia_ocup, erro_ocup),
         ("Forecast",f"Acuracidade de {acuracidade_fcst:.2f}%",f"Desvio de {desvio_fcst:,.0f}".replace(",","."),"good" if acuracidade_fcst>=98 else "bad"),
     ]
     cols=st.columns(3,gap="small")
