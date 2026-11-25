@@ -1059,8 +1059,8 @@ def exibir_visao_geral():
     p1,p2=st.columns(2,gap="medium")
     with p1:
         st.markdown('<div class="cio-panel-title">PERCENTUAL MENSAL • CANAL VERMELHO</div><div class="cio-panel-sub">Pedidos com e sem Canal Vermelho</div>',unsafe_allow_html=True)
-        if referencia_cv is not None:
-            st.caption(f"Janela de seis meses até {referencia_cv:%m/%Y} • {contexto}. Meses sem pedidos não têm barra.")
+        if pd.notna(referencia_cv):
+            st.caption(f"Janela de seis meses até {referencia_cv.strftime('%m/%Y')} • {contexto}. Meses sem pedidos não têm barra.")
         if canal_pct.empty:
             st.info(erro_cv or "Sem pedidos no período para o recorte selecionado.")
         else:
