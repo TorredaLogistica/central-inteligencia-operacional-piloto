@@ -37,7 +37,7 @@ INDICADORES = {
         {"titulo": "Valores dos EAs", "url": "https://valorestoques-eas-73bxfsks3rnoxjo44fuqm7.streamlit.app/", "icone": "📈", "periodicidade": "Mensal", "ultima_atualizacao": "Novembro/2026"},
         {"titulo": "Atendimento de OVs nos TLs", "url": "https://atendimento-de-ovs-nos-tls-in3rykeacnvjxedhb7r9zc.streamlit.app/", "icone": "📋", "periodicidade": "Esporádica", "ultima_atualizacao": "17/11/2026"},
         {"titulo": "Taxa de Ocupação dos CDs", "url": "https://taxadeocupacaodoscds-tfx8ftu78n46vhvn5dxc7k.streamlit.app/", "icone": "🏭", "periodicidade": "Esporádica", "ultima_atualizacao": "13/11/2026"},
-        {"titulo": "Pedidos Canal Vermelho", "url": "https://cuencjwy3ahhnzymzsspuc.streamlit.app/", "icone": "⚡", "periodicidade": "Esporádica", "ultima_atualizacao": "24/11/2026"},
+        {"titulo": "Pedidos Canal Vermelho", "url": "https://cuencjwy3ahhnzymzsspuc.streamlit.app/", "icone": "⚡", "periodicidade": "Esporádica", "ultima_atualizacao": "15/11/2026"},
         {"titulo": "Pedidos LPs e AAs NFs não Agrupadas", "url": "https://nfs-nao-agrupadas-juqvjn8nhbzuhzzdfwknbl.streamlit.app/", "icone": "🧾", "periodicidade": "Esporádica", "ultima_atualizacao": "01/10 a 17/11/2026"},
         {"titulo": "Faturas dos OPLs", "url": "https://faturasdosopls-fdgzskwvbciwkgubekfjcz.streamlit.app/", "icone": "💵", "periodicidade": "Mensal", "ultima_atualizacao": "Novembro/2026"},
         {"titulo": "Recebimento de Usados", "url": "https://controlederecebimentodeusados-ucfnrvqwuceiet5q7tt4wn.streamlit.app/", "icone": "♻️", "periodicidade": "Mensal", "ultima_atualizacao": "Outubro/2026"},
@@ -687,6 +687,97 @@ def _destaques_sf(rankings, nomes_cd, nomes_empresa, erro):
     return cards
 
 
+def _preparar_canal_vermelho(df):
+    df = df.rename(columns=lambda c: str(c).strip())
+    data_col = "Referencia" if "Referencia" in df else "Data Pedido"
+    flag_col = "CV" if "CV" in df else "Canal Vermelho"
+    if not {data_col, flag_col, "Pedido", "CD Origem", "Empresa Padrao"}.issubset(df.columns):
+        raise ValueError("Colunas obrigatórias de Canal Vermelho não localizadas")
+    data = df[data_col]
+    if pd.api.types.is_datetime64_any_dtype(data):
+        datas = pd.to_datetime(data, errors="coerce")
+    else:
+        texto = data.astype("string").str.strip()
+        numeros = pd.to_numeric(texto, errors="coerce")
+        serial = numeros.between(1, 100000).fillna(False)
+        datas = pd.to_datetime(texto.where(~serial), dayfirst=True, format="mixed", errors="coerce")
+        datas.loc[serial] = pd.to_datetime(numeros.loc[serial].astype(float), unit="D", origin="1899-12-30", errors="coerce")
+    mes = datas.dt.to_period("M")
+    if not mes.notna().any():
+        raise ValueError("Datas de pedido não localizadas")
+    atual = pd.Timestamp.now(tz="America/Sao_Paulo").tz_localize(None).to_period("M")
+    referencia = atual if mes.eq(atual).any() else mes.max()
+    janela = pd.period_range(end=referencia, periods=6, freq="M")
+    filtro = mes.isin(janela)
+    dados = df.loc[filtro]
+    base = pd.DataFrame({"mes": mes.loc[filtro]})
+    for destino, origem in [("cd", "CD Origem"), ("empresa", "Empresa Padrao")]:
+        valores = dados[origem].fillna("").astype(str)
+        base[destino] = valores.map({v: _chave_eas(v) for v in valores.unique()})
+    pedidos = dados["Pedido"].astype("string").str.strip().str.replace(r"\.0$", "", regex=True)
+    base["pedido"] = pedidos.mask(pedidos.isin(["", "nan", "None", "<NA>"]))
+    flags = dados[flag_col].fillna("").astype(str)
+    base["vermelho"] = flags.map({v: _chave_eas(v) for v in flags.unique()}).isin(["sim", "s", "yes", "1", "true"])
+    base = base.dropna(subset=["pedido"])
+    base = base.groupby(["mes", "cd", "empresa", "pedido"], as_index=False, sort=False)["vermelho"].max()
+    return base, referencia
+
+
+@st.cache_data(ttl=1800, max_entries=2, show_spinner=False)
+def _carregar_canal_vermelho(repositorio, branch, arquivo, marcador):
+    nome = "Pedidos Canal Vermelho"
+    try:
+        meta = obter_metadados_fonte(nome, repositorio, branch, arquivo, marcador)
+    except FileNotFoundError:
+        meta = obter_metadados_fonte(nome, repositorio, branch, f"data/{arquivo}", marcador)
+    url = meta.get("Download")
+    if not url:
+        raise ValueError("Arquivo de Canal Vermelho sem URL de download")
+    resposta = requests.get(url, timeout=(5, 30))
+    resposta.raise_for_status()
+    return _preparar_canal_vermelho(pd.read_parquet(io.BytesIO(resposta.content), engine="pyarrow"))
+
+
+def _resumir_canal_vermelho(base, referencia, cd, empresa):
+    recorte = base
+    for campo, selecao in [("cd", cd), ("empresa", empresa)]:
+        if selecao != "Consolidado":
+            recorte = recorte[recorte[campo].eq(_chave_eas(selecao))]
+    # Na visão consolidada, o mesmo pedido ainda deve contar uma vez por mês.
+    unicos = recorte.groupby(["mes", "pedido"], sort=False)["vermelho"].max()
+    resumo = unicos.groupby(level="mes").agg(total="size", com="sum")
+    janela = pd.period_range(end=referencia, periods=6, freq="M")
+    return resumo.reindex(janela, fill_value=0)
+
+
+def _tabela_grafico_canal_vermelho(resumo):
+    meses = "Janeiro Fevereiro Março Abril Maio Junho Julho Agosto Setembro Outubro Novembro Dezembro".split()
+    linhas = []
+    for periodo, linha in resumo.iterrows():
+        if not linha["total"]:
+            continue
+        com = 100 * linha["com"] / linha["total"]
+        linhas.append({"Mês": meses[periodo.month - 1], "Competência": periodo.strftime("%m/%Y"),
+                       "Pedidos Com Canal Vermelho": com,
+                       "Pedidos Sem Canal Vermelho": 100 - com})
+    return pd.DataFrame(linhas)
+
+
+def _resumo_executivo_canal_vermelho(resumo, erro):
+    neutro = ("Canal Vermelho", "Sem resultado disponível", erro or "Sem pedidos no mês de referência", "")
+    if resumo.empty or not resumo.iloc[-1]["total"]:
+        return neutro
+    atual, anterior = resumo.iloc[-1], resumo.iloc[-2]
+    pct = 100 * atual["com"] / atual["total"]
+    texto = f"{_percentual_sf(pct)} dos pedidos"
+    if not anterior["total"]:
+        return "Canal Vermelho", texto, "Sem comparativo mensal", ""
+    pct_anterior = 100 * anterior["com"] / anterior["total"]
+    delta = pct - pct_anterior
+    detalhe = f"Mês anterior: {_percentual_sf(pct_anterior)} • {delta:+.2f} p.p.".replace(".", ",").replace("p,p,", "p.p.")
+    return "Canal Vermelho", texto, detalhe, "bad" if delta > 0 else "good" if delta < 0 else ""
+
+
 def diagnosticar_base(df):
     datas_candidatas = []
     palavras_data = ("data", "dt ", "date", "emissão", "emissao", "criação", "criacao")
@@ -838,7 +929,7 @@ def exibir_visao_geral():
         ("💲", "CUSTO LOGÍSTICO", *fatura_total),
         ("💰","RESULTADO DO DRE",f"R$ {perfil['dre']:.2f} MM".replace(".",","),"Resultado operacional","▲ 5,8% vs mês anterior","#18b84b"),
     ]
-    st.markdown(f'<div class="demo-strip">DADOS DA BASE: EAs, FATURAS E SEPARAÇÃO E FATURAMENTO • DEMAIS INDICADORES DEMONSTRATIVOS • {html.escape(contexto)}</div>',unsafe_allow_html=True)
+    st.markdown(f'<div class="demo-strip">DADOS DA BASE: EAs, FATURAS, SEPARAÇÃO E FATURAMENTO E CANAL VERMELHO • DEMAIS INDICADORES DEMONSTRATIVOS • {html.escape(contexto)}</div>',unsafe_allow_html=True)
     for col,item in zip(st.columns(4,gap="small"),kpis):
         with col:
             icone,titulo,valor,unidade,variacao,cor=item
@@ -950,39 +1041,54 @@ def exibir_visao_geral():
     perf_chart=(perf_bars+perf_scores+perf_names).properties(height=360,padding={"left":5,"right":18,"top":5,"bottom":5}).configure_view(stroke=None).configure(background="#100c0f")
     st.altair_chart(perf_chart,use_container_width=True)
 
-    canal_pct=pd.DataFrame({
-        "Mês":["Junho","Julho","Agosto","Setembro","Outubro","Novembro"],
-        "Pedidos Com Canal Vermelho":[5.24,4.03,4.07,5.09,3.65,7.09],
-    })
-    canal_pct["Pedidos Sem Canal Vermelho"]=100-canal_pct["Pedidos Com Canal Vermelho"]
-    canal_long=canal_pct.melt("Mês",var_name="Tipo",value_name="Percentual")
+    erro_cv = ""
+    resumo_cv = pd.DataFrame()
+    canal_pct = pd.DataFrame()
+    referencia_cv = None
+    try:
+        fonte_cv = FONTES_REMOTAS["Pedidos Canal Vermelho"]
+        base_cv, referencia_cv = _carregar_canal_vermelho(
+            fonte_cv["repositorio"], fonte_cv["branch"], fonte_cv["arquivo"],
+            "configurado" if _github_token() else "publico",
+        )
+        resumo_cv = _resumir_canal_vermelho(base_cv, referencia_cv, cd_selecionado, empresa_selecionada)
+        canal_pct = _tabela_grafico_canal_vermelho(resumo_cv)
+    except Exception:
+        erro_cv = "Base de Canal Vermelho indisponível. Consulte Fontes de dados."
     ocupacao=cds.sort_values("Ocupação",ascending=False)
     p1,p2=st.columns(2,gap="medium")
     with p1:
         st.markdown('<div class="cio-panel-title">PERCENTUAL MENSAL • CANAL VERMELHO</div><div class="cio-panel-sub">Pedidos com e sem Canal Vermelho</div>',unsafe_allow_html=True)
-        base_canal=alt.Chart(canal_long).encode(
-            y=alt.Y("Mês:N",sort=["Junho","Julho","Agosto","Setembro","Outubro","Novembro"],axis=alt.Axis(labelColor="#f2f4f7",title=None)),
-            x=alt.X("Percentual:Q",stack="zero",scale=alt.Scale(domain=[0,100]),axis=alt.Axis(values=[0,20,40,60,80,100],labelExpr="datum.value + '%'",labelColor="#cbd5df",gridColor="#362329",title=None)),
-            color=alt.Color("Tipo:N",scale=alt.Scale(domain=["Pedidos Sem Canal Vermelho","Pedidos Com Canal Vermelho"],range=["#f5a623","#ef3340"]),legend=alt.Legend(labelColor="#fff",title=None,orient="top")),
-            order=alt.Order("Tipo:N",sort="descending"),tooltip=["Mês","Tipo",alt.Tooltip("Percentual:Q",format=".2f")]
-        )
-        barras=base_canal.mark_bar(cornerRadius=3)
-        sem_rotulos=alt.Chart(canal_pct).transform_calculate(
-            Posicao="datum['Pedidos Sem Canal Vermelho'] / 2",
-            Rotulo="format(datum['Pedidos Sem Canal Vermelho'], '.2f') + '%'"
-        ).mark_text(color="#21130a",fontSize=12,fontWeight="bold").encode(
-            x=alt.X("Posicao:Q",scale=alt.Scale(domain=[0,100])),
-            y=alt.Y("Mês:N",sort=["Junho","Julho","Agosto","Setembro","Outubro","Novembro"]),
-            text="Rotulo:N")
-        com_rotulos=alt.Chart(canal_pct).transform_calculate(
-            Posicao="datum['Pedidos Sem Canal Vermelho'] + datum['Pedidos Com Canal Vermelho'] / 2",
-            Rotulo="format(datum['Pedidos Com Canal Vermelho'], '.2f') + '%'"
-        ).mark_text(color="#ffffff",fontSize=11,fontWeight="bold").encode(
-            x=alt.X("Posicao:Q",scale=alt.Scale(domain=[0,100])),
-            y=alt.Y("Mês:N",sort=["Junho","Julho","Agosto","Setembro","Outubro","Novembro"]),
-            text="Rotulo:N")
-        canal_chart=(barras+sem_rotulos+com_rotulos).properties(height=270,width="container").configure_view(stroke=None).configure(background="#100c0f")
-        st.altair_chart(canal_chart,use_container_width=True)
+        if referencia_cv is not None:
+            st.caption(f"Janela de seis meses até {referencia_cv:%m/%Y} • {contexto}. Meses sem pedidos não têm barra.")
+        if canal_pct.empty:
+            st.info(erro_cv or "Sem pedidos no período para o recorte selecionado.")
+        else:
+            ordem_cv = canal_pct["Mês"].tolist()
+            canal_long = canal_pct.melt(["Mês", "Competência"], var_name="Tipo", value_name="Percentual")
+            base_canal=alt.Chart(canal_long).encode(
+                y=alt.Y("Mês:N",sort=ordem_cv,axis=alt.Axis(labelColor="#f2f4f7",title=None)),
+                x=alt.X("Percentual:Q",stack="zero",scale=alt.Scale(domain=[0,100]),axis=alt.Axis(values=[0,20,40,60,80,100],labelExpr="datum.value + '%'",labelColor="#cbd5df",gridColor="#362329",title=None)),
+                color=alt.Color("Tipo:N",scale=alt.Scale(domain=["Pedidos Sem Canal Vermelho","Pedidos Com Canal Vermelho"],range=["#f5a623","#ef3340"]),legend=alt.Legend(labelColor="#fff",title=None,orient="top",columns=1,labelLimit=280)),
+                order=alt.Order("Tipo:N",sort="descending"),tooltip=["Competência","Tipo",alt.Tooltip("Percentual:Q",format=".2f")]
+            )
+            barras=base_canal.mark_bar(cornerRadius=3)
+            sem_rotulos=alt.Chart(canal_pct).transform_calculate(
+                Posicao="datum['Pedidos Sem Canal Vermelho'] / 2",
+                Rotulo="format(datum['Pedidos Sem Canal Vermelho'], '.2f') + '%'"
+            ).mark_text(color="#21130a",fontSize=12,fontWeight="bold").encode(
+                x=alt.X("Posicao:Q",scale=alt.Scale(domain=[0,100])),
+                y=alt.Y("Mês:N",sort=ordem_cv),
+                text="Rotulo:N")
+            com_rotulos=alt.Chart(canal_pct).transform_calculate(
+                Posicao="datum['Pedidos Sem Canal Vermelho'] + datum['Pedidos Com Canal Vermelho'] / 2",
+                Rotulo="format(datum['Pedidos Com Canal Vermelho'], '.2f') + '%'"
+            ).mark_text(color="#ffffff",fontSize=11,fontWeight="bold").encode(
+                x=alt.X("Posicao:Q",scale=alt.Scale(domain=[0,100])),
+                y=alt.Y("Mês:N",sort=ordem_cv),
+                text="Rotulo:N")
+            canal_chart=(barras+sem_rotulos+com_rotulos).properties(height=270,width="container").configure_view(stroke=None).configure(background="#100c0f")
+            st.altair_chart(canal_chart,use_container_width=True)
     with p2:
         st.markdown('<div class="cio-panel-title">OCUPAÇÃO DOS CDs</div><div class="cio-panel-sub">Faixa recomendada: 75% a 90%</div>',unsafe_allow_html=True)
         ocup_base=alt.Chart(ocupacao).encode(
@@ -1033,7 +1139,7 @@ def exibir_visao_geral():
         ("Operação",f"SLA operacional em {perfil['sla']:.1f}%","Acima da referência demonstrativa" if perfil["sla"]>=95 else "Abaixo da referência demonstrativa","good" if perfil["sla"]>=95 else "bad"),
         ("Separação e Faturamento", f"D+1 em {_percentual_sf(sla_d1)}" if sla_d1 is not None else "Sem resultado disponível", detalhe_sf, ("good" if sla_d1 >= meta_sf else "bad") if sla_d1 is not None else ""),
         ("Nível de Serviço OPLs",f"D+2 em {sla_opl_d2:.1f}%",f"Gap para D+4 de {gap_opl:.1f} p.p.","good" if sla_opl_d2>=95 else "bad"),
-        ("Canal Vermelho","7,09% dos pedidos","Mês anterior: 3,65% • aumento de 3,44 p.p.","bad"),
+        _resumo_executivo_canal_vermelho(resumo_cv, erro_cv),
         ("Capacidade",f"{int((cds['Ocupação']>90).sum())} CD(s) acima de 90%",f"Maior ocupação: {cds.loc[cds['Ocupação'].idxmax(),'CD']}","bad" if (cds["Ocupação"]>90).any() else "good"),
         ("Forecast",f"Acuracidade de {acuracidade_fcst:.2f}%",f"Desvio de {desvio_fcst:,.0f}".replace(",","."),"good" if acuracidade_fcst>=98 else "bad"),
     ]
