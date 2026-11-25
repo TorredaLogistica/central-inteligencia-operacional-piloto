@@ -520,8 +520,8 @@ def _card_valores_eas(cd, empresa):
     return valor, detalhe, comparativo, "#20c66b" if delta > 0 else "#ff757d" if delta < 0 else "#c9bdc0"
 
 
-def _calcular_fatura_total(df, cd, empresa):
-    # Mesma regra da Fatura total em App_Faturas.py: soma de Custo no recorte.
+def _calcular_resumo_faturas(df, cd, empresa):
+    # Mesmas agregações da visão executiva de App_Faturas.py.
     obrigatorias = {"MÊS/ANO", "Custo", "Unidade", "Empresa"}
     if not obrigatorias.issubset(df.columns):
         raise ValueError("Colunas da guia Fatura não localizadas")
@@ -534,36 +534,98 @@ def _calcular_fatura_total(df, cd, empresa):
         mascara &= df["Unidade"].map(_chave_eas).eq(_chave_eas(cd))
     if empresa != "Consolidado":
         mascara &= df["Empresa"].map(_chave_eas).eq(_chave_eas(empresa))
-    atual = mascara & datas.eq(referencia)
-    if not atual.any():
-        return None, referencia, None
-    custos = pd.to_numeric(df["Custo"], errors="coerce").fillna(0)
-    total = float(custos[atual].sum())
-    anterior = float(custos[mascara & datas.eq(referencia - pd.DateOffset(months=1))].sum())
-    variacao = (total / anterior - 1) * 100 if anterior else None
-    return total, referencia, variacao
+    atual = df.loc[mascara & datas.eq(referencia)]
+    resumo = {"referencia": referencia}
+    if atual.empty:
+        return resumo
+    custos = pd.to_numeric(atual["Custo"], errors="coerce").fillna(0)
+    anterior = pd.to_numeric(df.loc[mascara & datas.eq(referencia - pd.DateOffset(months=1)), "Custo"], errors="coerce").fillna(0).sum()
+    total = float(custos.sum())
+    resumo.update(total=total, variacao=(total / anterior - 1) * 100 if anterior else None)
+    if "Tipo_Local" in atual:
+        local = atual["Tipo_Local"].astype(str).str.strip().str.upper()
+        for tipo in ("CD", "EA"):
+            resumo[tipo.lower()] = float(custos[local.eq(tipo)].sum())
+    if "Volume" in atual:
+        volumes = pd.to_numeric(atual["Volume"], errors="coerce").fillna(0)
+        resumo["volume"] = float(volumes.sum())
+        if "Tipo_Despesa" in atual:
+            despesa = atual["Tipo_Despesa"].astype(str).str.strip().str.upper()
+            for fluxo in ("IN", "OUT"):
+                recorte = despesa.eq(f"VOL {fluxo}")
+                volume = volumes[recorte].sum()
+                resumo[fluxo.lower()] = float(custos[recorte].sum() / volume) if volume else None
+    if "Operador_logístico" in atual:
+        operadores = atual["Operador_logístico"].astype(str).str.strip().str.upper()
+        for opl in ("CELISTICS", "POSTALGOW", "TPC"):
+            resumo[opl.lower()] = float(custos[operadores.eq(opl)].sum())
+    return resumo
 
 
-def _card_fatura_total(cd, empresa):
-    fonte = FONTES_REMOTAS["Faturas dos OPLs"]
+def _ler_resumo_faturas(cd, empresa):
+    nome = "Faturas dos OPLs"
+    fonte = FONTES_REMOTAS[nome]
+    df = carregar_base_github(nome, fonte["repositorio"], fonte["branch"], fonte["arquivo"],
+                              fonte["formato"], "configurado" if _github_token() else "publico", guia="Fatura")
+    return _calcular_resumo_faturas(df, cd, empresa)
+
+
+def _br_fatura(valor, casas=2):
+    return f"{valor:,.{casas}f}".translate(str.maketrans(",.", ".,"))
+
+
+def _card_fatura_total(resumo, erro):
     neutro = "#c9bdc0"
-    try:
-        df = carregar_base_github(
-            "Faturas dos OPLs", fonte["repositorio"], fonte["branch"], fonte["arquivo"],
-            fonte["formato"], "configurado" if _github_token() else "publico", guia="Fatura",
-        )
-        total, referencia, variacao = _calcular_fatura_total(df, cd, empresa)
-    except Exception:
-        return "—", "Fonte de faturas indisponível", "Consulte Fontes de dados", neutro
+    if erro:
+        return "—", erro, "Consulte Fontes de dados", neutro
+    referencia = resumo["referencia"].strftime("%m/%Y")
+    total, variacao = resumo.get("total"), resumo.get("variacao")
     if total is None:
-        return "—", f"Sem faturas no recorte • {referencia:%m/%Y}", "Sem comparativo mensal", neutro
-    valor = f"R$ {total / 1_000_000:,.2f} MM".replace(",", "_").replace(".", ",").replace("_", ".")
-    detalhe = f"Fatura total • {referencia:%m/%Y}"
+        return "—", f"Sem faturas no recorte • {referencia}", "Sem comparativo mensal", neutro
+    valor = f"R$ {_br_fatura(total / 1_000_000)} MM"
+    detalhe = f"Fatura total • {referencia}"
     if variacao is None:
         return valor, detalhe, "Sem comparativo mensal", neutro
     seta = "▲ " if variacao > 0 else "▼ " if variacao < 0 else ""
     texto = f"{seta}{variacao:+.1f}% vs mês anterior".replace(".", ",")
     return valor, detalhe, texto, "#ff757d" if variacao > 0 else "#20c66b" if variacao < 0 else neutro
+
+
+def _itens_cards_faturas(resumo):
+    def moeda(chave):
+        valor = resumo.get(chave)
+        return "—" if valor is None else f"R$ {_br_fatura(valor)}"
+
+    volume, variacao = resumo.get("volume"), resumo.get("variacao")
+    return [
+        ("CUSTO CD + EA", moeda("total"), "Fatura total", "#e30613"),
+        ("CUSTO CD", moeda("cd"), "Centros de distribuição", "#2188ff"),
+        ("CUSTO EA", moeda("ea"), "Estações avançadas", "#172b85"),
+        ("VOLUME TOTAL", "—" if volume is None else _br_fatura(volume, 0), "Itens/movimentos", "#ff9d76"),
+        ("UNITÁRIO IN | OUT", f"{moeda('in')} | {moeda('out')}", "Custo ÷ volume por fluxo", "#6a5acd"),
+        ("VARIAÇÃO MENSAL", "—" if variacao is None else f"{variacao:+.1f}%".replace(".", ","),
+         "Mesmo recorte vs mês anterior" if variacao is not None else "Sem comparativo mensal", "#22a699"),
+        *((f"CUSTO {opl}", moeda(opl.lower()), f"{opl} (Fatura)", "#111827")
+          for opl in ("CELISTICS", "POSTALGOW", "TPC")),
+    ]
+
+
+def _exibir_cards_faturas(resumo, contexto, erro):
+    referencia = resumo.get("referencia")
+    detalhe = f"{referencia.strftime('%m/%Y')} • {contexto}" if referencia is not None else contexto
+    st.markdown(f'<div class="cio-panel-title">FATURAS DOS OPLs</div>'
+                f'<div class="cio-panel-sub">{html.escape(detalhe)}</div>', unsafe_allow_html=True)
+    if erro or "total" not in resumo:
+        st.info(erro or "Sem faturas na competência de referência para os filtros selecionados.")
+        return
+    cards = "".join(
+        f'<article class="cio-fatura-card" style="--fatura-acento:{cor}">'
+        f'<div class="cio-fatura-titulo">{html.escape(titulo)}</div>'
+        f'<div class="cio-fatura-valor">{html.escape(valor)}</div>'
+        f'<div class="cio-fatura-detalhe">{html.escape(subtitulo)}</div></article>'
+        for titulo, valor, subtitulo, cor in _itens_cards_faturas(resumo)
+    )
+    st.markdown(f'<div class="cio-fatura-grid">{cards}</div>', unsafe_allow_html=True)
 
 
 METAS_SF = {
@@ -969,7 +1031,12 @@ def exibir_visao_geral():
         variacao_sf = f"{seta_sf}{delta_sf:+.1f}% vs mês anterior".replace(".", ",")
         cor_sf = "#20c66b" if delta_sf > 0 else "#ff757d" if delta_sf < 0 else cor_sf
     estoque_eas = _card_valores_eas(cd_selecionado, empresa_selecionada)
-    fatura_total = _card_fatura_total(cd_selecionado, empresa_selecionada)
+    resumo_faturas, erro_faturas = {}, ""
+    try:
+        resumo_faturas = _ler_resumo_faturas(cd_selecionado, empresa_selecionada)
+    except Exception:
+        erro_faturas = "Fonte de faturas indisponível"
+    fatura_total = _card_fatura_total(resumo_faturas, erro_faturas)
     kpis=[
         ("📈", "VALORES DOS EAs", *estoque_eas),
         ("📊", "SEPARAÇÃO E FATURAMENTO", volume_sf, detalhe_sf, variacao_sf, cor_sf),
@@ -981,21 +1048,6 @@ def exibir_visao_geral():
         with col:
             icone,titulo,valor,unidade,variacao,cor=item
             st.markdown(f'<div class="cio-kpi"><div class="cio-kpi-head"><span class="cio-kpi-icon">{icone}</span><span class="cio-kpi-title">{titulo}</span></div><div class="cio-kpi-value">{valor}</div><div class="cio-kpi-unit">{unidade}</div><div class="cio-kpi-change" style="color:{cor}">{variacao}</div><div class="cio-spark">⌁╱⌁╱╲╱</div></div>',unsafe_allow_html=True)
-
-    cds=pd.DataFrame({
-        "CD":["Campinas","Rio de Janeiro","Brasília","Barueri","Contagem","Palhoça","Jaboatão","Manaus","Salvador"],
-        "Volume":[238450,205320,141880,186750,152460,98740,88760,69340,98290],
-        "SLA":[98.2,96.7,96.1,97.4,95.6,95.2,94.8,93.9,95.0],
-        "Reversa":[1.88,2.38,2.42,2.05,2.72,2.81,2.96,3.18,2.89],
-        "Ocupação":[84,78,73,88,91,76,82,94,80],
-    })
-    cds["Volume"]=(cds["Volume"]*fator_empresa).round().astype(int)
-    # Score demonstrativo considerando somente SLA e ocupação. O índice de reversa não participa deste indicador.
-    cds["Score"]=(cds["SLA"]-((cds["Ocupação"]-82).abs()*0.10)).round(1)
-    cds["Faixa desempenho"] = cds["Score"].apply(lambda v: "Excelente" if v >= 91 else ("Atenção" if v < 88 else "Estável"))
-    cds["Faixa ocupação"] = cds["Ocupação"].apply(lambda v: "Crítica" if v > 90 else ("Adequada" if v >= 75 else "Baixa"))
-    cds=cds.sort_values("Score",ascending=False).reset_index(drop=True)
-    cds["Rank"]=range(1,len(cds)+1)
 
     nomes_cd_sf = {_chave_eas(nome): nome for nome in perfis_cd if nome != "Consolidado"}
     nomes_empresa_sf = {_chave_eas(nome): nome for nome in empresas if nome != "Consolidado"}
@@ -1067,26 +1119,7 @@ def exibir_visao_geral():
 
 
     alertas_base=[("🔴","SLA abaixo da meta","SLA inferior à meta operacional","Há 2h"),("🟠","Ocupação crítica","CD acima de 90% de ocupação","Há 3h"),("🟠","Pendências de faturamento","Valores aguardando tratamento","Há 4h"),("🔴","Atraso em pedidos Canal Vermelho","Pedidos críticos em atraso","Há 5h")]
-    st.markdown(f'<div class="cio-panel-title">DESEMPENHO COMPARATIVO DOS CDs • DEMONSTRATIVO</div><div class="cio-panel-sub">Score de 0 a 100: combina SLA e ocupação. Quanto mais próximo da meta, melhor.</div>',unsafe_allow_html=True)
-    perf=cds.sort_values("Score")
-    ordem_perf=perf.sort_values("Score",ascending=False)["CD"].tolist()
-    perf_plot=perf.copy()
-    perf_plot["Barra"]=perf_plot["Score"]-84
-    perf_base=alt.Chart(perf_plot).encode(
-        y=alt.Y("CD:N",sort=ordem_perf,axis=None),
-        color=alt.Color("Faixa desempenho:N",scale=alt.Scale(domain=["Excelente","Estável","Atenção"],range=["#1dc267","#f2a51a","#ef3340"]),legend=alt.Legend(labelColor="#fff",title=None,orient="top")),
-        tooltip=["Rank","CD",alt.Tooltip("Score:Q",format=".1f"),alt.Tooltip("SLA:Q",format=".1f"),alt.Tooltip("Ocupação:Q",format=".0f"),"Faixa desempenho"]
-    )
-    perf_bars=perf_base.mark_bar(cornerRadiusEnd=6,size=24).encode(
-        x=alt.X("Barra:Q",scale=alt.Scale(domain=[-3.2,12]),axis=alt.Axis(values=[0,2,4,6,8,10,12],labelExpr="datum.value + 84",labelColor="#cbd5df",gridColor="#362329",title="Score operacional",titleColor="#cbd5df")),
-        x2=alt.value(0),
-    )
-    perf_scores=perf_base.transform_calculate(Rotulo="format(datum.Score, '.1f')").mark_text(align="right",dx=-8,color="white",fontSize=12,fontWeight="bold").encode(
-        x=alt.X("Barra:Q",scale=alt.Scale(domain=[-3.2,12])),text="Rotulo:N")
-    perf_names=alt.Chart(perf_plot).mark_text(align="left",baseline="middle",color="#f7f7f8",fontSize=13,fontWeight="bold").encode(
-        x=alt.datum(-3.0),y=alt.Y("CD:N",sort=ordem_perf,axis=None),text="CD:N")
-    perf_chart=(perf_bars+perf_scores+perf_names).properties(height=360,padding={"left":5,"right":18,"top":5,"bottom":5}).configure_view(stroke=None).configure(background="#100c0f")
-    st.altair_chart(perf_chart,use_container_width=True)
+    _exibir_cards_faturas(resumo_faturas, contexto, erro_faturas)
 
     erro_cv = ""
     resumo_cv = pd.DataFrame()
@@ -2502,6 +2535,15 @@ body:has(.cio-title) .cio-kpi-value{font-size:1.62rem}
 /* Faixa unica e fixa de acessos publicos */
 div[data-testid="stSegmentedControl"]:has(+ div), [data-testid="stSegmentedControl"]{position:sticky;top:0;z-index:50;background:#fff;padding:7px 9px;border:1px solid #d9dee5;border-radius:10px;box-shadow:0 4px 12px rgba(31,41,55,.08);margin:8px 0 15px}
 [data-testid="stSegmentedControl"] button,[data-testid="stSegmentedControl"] label{min-height:34px!important;font-weight:750!important}
+
+/* Cards de faturas: grade do indicador de referência, isolada da Central. */
+.cio-fatura-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin:12px 0 20px}
+.cio-fatura-card{min-width:0;box-sizing:border-box;min-height:145px;background:#fff;border:1px solid #d5deeb;border-top:5px solid var(--fatura-acento);border-radius:16px;padding:19px 10px;text-align:center;display:grid;align-content:center;gap:12px;box-shadow:0 3px 12px rgba(0,0,0,.12)}
+.cio-fatura-titulo{font-size:.8rem;color:#414e60;font-weight:800;line-height:1.25}
+.cio-fatura-valor{font-size:clamp(1.05rem,2.1vw,2rem);line-height:1.16;color:#152239;font-weight:900;overflow-wrap:anywhere;font-variant-numeric:tabular-nums}
+.cio-fatura-detalhe{font-size:.8rem;color:#546176;line-height:1.25}
+@media(max-width:900px){.cio-fatura-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}}
+@media(max-width:540px){.cio-fatura-grid{grid-template-columns:minmax(0,1fr)}.cio-fatura-card{min-height:118px}}
 </style>
 <div class="portal-head portal-head-base">
   <div class="portal-brand">
