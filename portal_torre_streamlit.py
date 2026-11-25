@@ -37,7 +37,7 @@ INDICADORES = {
         {"titulo": "Valores dos EAs", "url": "https://valorestoques-eas-73bxfsks3rnoxjo44fuqm7.streamlit.app/", "icone": "📈", "periodicidade": "Mensal", "ultima_atualizacao": "Novembro/2026"},
         {"titulo": "Atendimento de OVs nos TLs", "url": "https://atendimento-de-ovs-nos-tls-in3rykeacnvjxedhb7r9zc.streamlit.app/", "icone": "📋", "periodicidade": "Esporádica", "ultima_atualizacao": "17/11/2026"},
         {"titulo": "Taxa de Ocupação dos CDs", "url": "https://taxadeocupacaodoscds-tfx8ftu78n46vhvn5dxc7k.streamlit.app/", "icone": "🏭", "periodicidade": "Esporádica", "ultima_atualizacao": "13/11/2026"},
-        {"titulo": "Pedidos Canal Vermelho", "url": "https://cuencjwy3ahhnzymzsspuc.streamlit.app/", "icone": "⚡", "periodicidade": "Esporádica", "ultima_atualizacao": "15/11/2026"},
+        {"titulo": "Pedidos Canal Vermelho", "url": "https://cuencjwy3ahhnzymzsspuc.streamlit.app/", "icone": "⚡", "periodicidade": "Esporádica", "ultima_atualizacao": "24/11/2026"},
         {"titulo": "Pedidos LPs e AAs NFs não Agrupadas", "url": "https://nfs-nao-agrupadas-juqvjn8nhbzuhzzdfwknbl.streamlit.app/", "icone": "🧾", "periodicidade": "Esporádica", "ultima_atualizacao": "01/10 a 17/11/2026"},
         {"titulo": "Faturas dos OPLs", "url": "https://faturasdosopls-fdgzskwvbciwkgubekfjcz.streamlit.app/", "icone": "💵", "periodicidade": "Mensal", "ultima_atualizacao": "Novembro/2026"},
         {"titulo": "Recebimento de Usados", "url": "https://controlederecebimentodeusados-ucfnrvqwuceiet5q7tt4wn.streamlit.app/", "icone": "♻️", "periodicidade": "Mensal", "ultima_atualizacao": "Outubro/2026"},
